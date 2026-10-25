@@ -31,67 +31,46 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Отчет для врача и данные'),
+        title: const Text('Клинический отчет и данные'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
         children: [
-          // 1. Секция отчета для врача
+          // 1. Выгрузка для сомнолога
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.surfaceBorder),
-            ),
+            padding: const EdgeInsets.all(20),
+            decoration: AppTheme.bentoBox(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.assignment_outlined, color: AppTheme.accent, size: 22),
-                    SizedBox(width: 8),
-                    Text('Отчет для врача-сомнолога', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Сводная клиническая выгрузка с расчетом TIB, TST, средней эффективности сна и динамики тестов ISI. '
-                  'Вы можете скопировать ее для отправки специалисту.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-                ),
-                const SizedBox(height: 16),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Период выгрузки:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 12),
-                    ChoiceChip(
-                      label: const Text('14 дней'),
-                      selected: _selectedDays == 14,
-                      selectedColor: AppTheme.accent.withValues(alpha: 0.2),
-                      side: BorderSide(color: _selectedDays == 14 ? AppTheme.accent : AppTheme.surfaceBorder),
-                      onSelected: (sel) => setState(() => _selectedDays = 14),
-                    ),
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: const Text('30 дней'),
-                      selected: _selectedDays == 30,
-                      selectedColor: AppTheme.accent.withValues(alpha: 0.2),
-                      side: BorderSide(color: _selectedDays == 30 ? AppTheme.accent : AppTheme.surfaceBorder),
-                      onSelected: (sel) => setState(() => _selectedDays = 30),
+                    const Text('ВЫГРУЗКА ДЛЯ ВРАЧА-СОМНОЛОГА', style: AppTheme.sectionLabel),
+                    Row(
+                      children: [
+                        _buildPeriodChip(14, '14 дн'),
+                        const SizedBox(width: 6),
+                        _buildPeriodChip(30, '30 дн'),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Сводный клинический протокол (предписанное окно, средние TIB, TST, SE %, SOL, WASO и динамика ISI).',
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.45),
+                ),
                 const SizedBox(height: 16),
-                // Превью отчета в стилизованном блоке
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppTheme.background,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppTheme.surfaceBorder),
                   ),
-                  height: 180,
+                  height: 175,
+                  width: double.infinity,
                   child: SingleChildScrollView(
                     child: Text(
                       reportText,
@@ -99,23 +78,22 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                         fontFamily: 'monospace',
                         fontSize: 11,
                         color: AppTheme.textSecondary,
-                        height: 1.4,
+                        height: 1.45,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.copy, size: 18),
-                    label: const Text('Скопировать отчет для врача'),
+                    icon: const Icon(Icons.copy_rounded, size: 17),
+                    label: const Text('Скопировать клинический отчет'),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: reportText));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Отчет скопирован в буфер обмена! Вы можете отправить его врачу или сохранить.'),
-                          backgroundColor: AppTheme.surfaceElevated,
+                          content: Text('Отчет скопирован в буфер обмена'),
                         ),
                       );
                     },
@@ -124,27 +102,27 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // 2. Секция щадящего режима титрации (Safe-SRT)
+          // 2. Щадящий режим Safe-SRT
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.surfaceBorder),
-            ),
+            padding: const EdgeInsets.all(18),
+            decoration: AppTheme.bentoBox(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.health_and_safety_outlined, color: AppTheme.warning, size: 22),
-                        SizedBox(width: 8),
-                        Text('Щадящий режим (Safe-SRT)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('КЛИНИЧЕСКИЙ ПРЕДОХРАНИТЕЛЬ', style: AppTheme.sectionLabel),
+                        SizedBox(height: 4),
+                        Text(
+                          'Щадящий режим (Safe-SRT)',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppTheme.textPrimary),
+                        ),
                       ],
                     ),
                     Switch(
@@ -154,86 +132,120 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Удерживает минимальный порог окна сна на уровне 6.5 часов (390 минут) вместо стандартных 5.0 часов.',
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 3. Метрики локального хранилища (Offline-First)
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: AppTheme.bentoBox(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('ЗАПИСЕЙ НОЧЕЙ', style: AppTheme.sectionLabel),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${entries.length}',
+                        style: AppTheme.monoFigures(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.accent),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text('Локально на устройстве', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: AppTheme.bentoBox(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('ТЕСТОВ ISI', style: AppTheme.sectionLabel),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${isiHistory.length}',
+                        style: AppTheme.monoFigures(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.success),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text('100% Offline-First', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // 4. Удаление данных
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: AppTheme.bentoBox(
+              color: AppTheme.error.withValues(alpha: 0.05),
+              borderColor: AppTheme.error.withValues(alpha: 0.25),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'УПРАВЛЕНИЕ ДАННЫМИ (152-ФЗ)',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppTheme.error),
+                ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Устанавливает минимальное окно сна не менее 6.5 часов (390 минут) вместо стандартных 5.0 часов. '
-                  'Рекомендуется при наличии противопоказаний (эпилепсия, БАР, апноэ или работа водителем).',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // 3. Секция локальной приватности
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.surfaceBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.shield_outlined, color: AppTheme.success, size: 22),
-                    SizedBox(width: 8),
-                    Text('Приватность и хранение', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Все ваши медицинские записи хранятся исключительно на этом устройстве (Offline-First). '
-                  'Приложение не собирает личные данные и не имеет серверов слежения.\n\n'
-                  '• Сохранено ночей в дневнике: ${entries.length}\n'
-                  '• Пройдено тестов ISI: ${isiHistory.length}',
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // 3. Красная зона: Полное удаление данных
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.error.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.delete_forever, color: AppTheme.error, size: 22),
-                    SizedBox(width: 8),
-                    Text('Удаление всех данных', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.error)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Безвозвратное удаление всей истории дневника сна, результатов опросников и сброс окна сна к заводским настройкам.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+                  'Безвозвратное стирание локальной истории дневника сна, тестов ISI и сброс предписанного окна сна.',
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
                 ),
                 const SizedBox(height: 14),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.error,
-                    side: const BorderSide(color: AppTheme.error),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.error,
+                      side: BorderSide(color: AppTheme.error.withValues(alpha: 0.45)),
+                    ),
+                    onPressed: () => _confirmClearData(context, sleep),
+                    child: const Text('Очистить все локальные данные'),
                   ),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Очистить все данные'),
-                  onPressed: () => _confirmClearData(context, sleep),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodChip(int days, String label) {
+    final bool active = _selectedDays == days;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedDays = days),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: active ? AppTheme.accent.withValues(alpha: 0.16) : AppTheme.surfaceElevated,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: active ? AppTheme.accent : AppTheme.surfaceBorder),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+            color: active ? AppTheme.accent : AppTheme.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -242,17 +254,20 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceElevated,
-        title: const Text('Удалить все данные?'),
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppTheme.surfaceBorder),
+        ),
+        title: const Text('Удалить все данные?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
         content: const Text(
-          'Вы уверены, что хотите стереть все записи дневника и результаты тестов? '
-          'Это действие нельзя отменить.',
-          style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+          'Все записи дневника сна и результаты тестов будут стерты из памяти устройства без возможности восстановления.',
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
+            child: const Text('Отмена', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
@@ -262,13 +277,12 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Все локальные данные были успешно удалены.'),
-                    backgroundColor: AppTheme.surface,
+                    content: Text('Все локальные данные удалены'),
                   ),
                 );
               }
             },
-            child: const Text('Удалить всё'),
+            child: const Text('Удалить'),
           ),
         ],
       ),

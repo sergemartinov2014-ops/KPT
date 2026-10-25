@@ -21,7 +21,9 @@ class _DbasScreenState extends State<DbasScreen> {
 
   Future<void> _loadData() async {
     final str = await rootBundle.loadString('assets/data/dbas_ru.json');
-    setState(() => _data = json.decode(str));
+    if (mounted) {
+      setState(() => _data = json.decode(str));
+    }
   }
 
   @override
@@ -34,102 +36,100 @@ class _DbasScreenState extends State<DbasScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Работа с мыслями о сне'),
+        title: const Text('Когнитивная реструктуризация'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.surfaceBorder),
+            padding: const EdgeInsets.all(18),
+            decoration: AppTheme.bentoBox(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF131A2E), Color(0xFF0C101B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.psychology_outlined, color: AppTheme.accent, size: 22),
-                    SizedBox(width: 8),
-                    Text('Когнитивная терапия сна', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  ],
-                ),
+                const Text('ШКАЛА УБЕЖДЕНИЙ DBAS • КПТ-И', style: AppTheme.sectionLabel),
                 const SizedBox(height: 8),
                 Text(
                   _data!['description'],
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          ...items.map((item) => _buildCard(item)),
-          const SizedBox(height: 20),
+          ...items.map((item) => _buildCognitiveCard(item)),
         ],
       ),
     );
   }
 
-  Widget _buildCard(dynamic item) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+  Widget _buildCognitiveCard(dynamic item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: AppTheme.bentoBox(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '0${item['id']}',
+                style: AppTheme.monoFigures(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warning),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'КАТАСТРОФИЧЕСКАЯ МЫСЛЬ',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.1, color: AppTheme.warning),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item['belief'],
+            style: const TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceElevated,
+              borderRadius: BorderRadius.circular(12),
+              border: const Border(
+                left: BorderSide(color: AppTheme.success, width: 3),
+              ),
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.cancel_outlined, color: AppTheme.error, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    item['belief'],
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
+                const Text(
+                  'ДОКАЗАТЕЛЬНЫЙ ФАКТ СОМНОЛОГИИ',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0, color: AppTheme.success),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  item['reframing'],
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                    height: 1.45,
                   ),
                 ),
               ],
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Divider(color: AppTheme.surfaceBorder, height: 1),
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.check_circle_outline, color: AppTheme.success, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Рациональный контраргумент:',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.success),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item['reframing'],
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

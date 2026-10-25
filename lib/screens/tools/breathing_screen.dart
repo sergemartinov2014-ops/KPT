@@ -11,9 +11,10 @@ class BreathingScreen extends StatefulWidget {
   State<BreathingScreen> createState() => _BreathingScreenState();
 }
 
-class _BreathingScreenState extends State<BreathingScreen> with SingleTickerProviderStateMixin {
+class _BreathingScreenState extends State<BreathingScreen> {
   BreathPhase _phase = BreathPhase.inhale;
   int _secondsLeft = 4;
+  int _completedCycles = 0;
   Timer? _timer;
   bool _isActive = true;
 
@@ -33,7 +34,6 @@ class _BreathingScreenState extends State<BreathingScreen> with SingleTickerProv
         if (_secondsLeft > 1) {
           _secondsLeft--;
         } else {
-          // Смена фазы
           switch (_phase) {
             case BreathPhase.inhale:
               _phase = BreathPhase.hold;
@@ -44,6 +44,7 @@ class _BreathingScreenState extends State<BreathingScreen> with SingleTickerProv
               _secondsLeft = 8;
               break;
             case BreathPhase.exhale:
+              _completedCycles++;
               _phase = BreathPhase.inhale;
               _secondsLeft = 4;
               break;
@@ -61,89 +62,145 @@ class _BreathingScreenState extends State<BreathingScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    String phaseText;
+    String phaseTitle;
+    String phaseHint;
     Color phaseColor;
     double scale;
 
     switch (_phase) {
       case BreathPhase.inhale:
-        phaseText = 'Вдох через нос';
+        phaseTitle = 'ВДОХ ЧЕРЕЗ НОС';
+        phaseHint = 'Спокойно наполняйте диафрагму';
         phaseColor = AppTheme.accent;
-        scale = 1.3 - (_secondsLeft / 4) * 0.3;
+        scale = 1.0 + ((4 - _secondsLeft) / 4) * 0.28;
         break;
       case BreathPhase.hold:
-        phaseText = 'Задержка дыхания';
-        phaseColor = AppTheme.warning;
-        scale = 1.3;
+        phaseTitle = 'ПАУЗА';
+        phaseHint = 'Мягкая задержка без напряжения';
+        phaseColor = AppTheme.success;
+        scale = 1.28;
         break;
       case BreathPhase.exhale:
-        phaseText = 'Медленный выдох через рот';
+        phaseTitle = 'МЕДЛЕННЫЙ ВЫДОХ';
+        phaseHint = 'Расслабьте плечи и челюсть';
         phaseColor = AppTheme.primaryLight;
-        scale = 1.0 + (_secondsLeft / 8) * 0.3;
+        scale = 1.0 + (_secondsLeft / 8) * 0.28;
         break;
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Дыхание 4-7-8'),
+        title: const Text('Дыхание 4–7–8'),
       ),
-      body: Center(
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                phaseText,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: phaseColor),
+              // Индикатор пропорции 4 - 7 - 8
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildPhasePill('Вдох 4с', _phase == BreathPhase.inhale, AppTheme.accent),
+                  const SizedBox(width: 8),
+                  _buildPhasePill('Пауза 7с', _phase == BreathPhase.hold, AppTheme.success),
+                  const SizedBox(width: 8),
+                  _buildPhasePill('Выдох 8с', _phase == BreathPhase.exhale, AppTheme.primaryLight),
+                ],
               ),
-              const SizedBox(height: 8),
-              const Text('Методика доктора Эндрю Вейла для снятия ночной тревоги', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-              const SizedBox(height: 48),
+              const Spacer(),
 
-              // Анимированный круг дыхания
-              AnimatedContainer(
-                duration: const Duration(seconds: 1),
-                curve: Curves.easeInOut,
-                width: 160 * scale,
-                height: 160 * scale,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: phaseColor.withValues(alpha: 0.15),
-                  border: Border.all(color: phaseColor, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: phaseColor.withValues(alpha: 0.3),
-                      blurRadius: 30,
-                      spreadRadius: 8,
-                    ),
-                  ],
+              Text(
+                phaseTitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2.0,
+                  color: phaseColor,
                 ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                phaseHint,
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 44),
+
+              // Концентрический респираторный круг
+              SizedBox(
+                width: 240,
+                height: 240,
                 child: Center(
-                  child: Text(
-                    '$_secondsLeft',
-                    style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: phaseColor),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 950),
+                    curve: Curves.easeInOutSine,
+                    width: 165 * scale,
+                    height: 165 * scale,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: phaseColor.withValues(alpha: 0.08),
+                      border: Border.all(color: phaseColor.withValues(alpha: 0.45), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: phaseColor.withValues(alpha: 0.14),
+                          blurRadius: 36,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$_secondsLeft',
+                        style: AppTheme.monoFigures(
+                          fontSize: 52,
+                          fontWeight: FontWeight.w300,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 60),
 
-              // Кнопка паузы / продолжения
-              IconButton.filledTonal(
-                iconSize: 32,
-                icon: Icon(_isActive ? Icons.pause : Icons.play_arrow),
-                onPressed: () {
-                  setState(() => _isActive = !_isActive);
-                },
+              const Spacer(),
+
+              Text(
+                'Завершено циклов: $_completedCycles из 4 рекомендуемых',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'Сделайте 4 полных цикла (около 2 минут). Это активирует парасимпатическую нервную систему и замедляет пульс.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: Icon(_isActive ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 18),
+                  label: Text(_isActive ? 'Приостановить практику' : 'Продолжить практику'),
+                  onPressed: () => setState(() => _isActive = !_isActive),
+                ),
               ),
+              const SizedBox(height: 12),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhasePill(String text, bool active, Color color) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: active ? color.withValues(alpha: 0.14) : AppTheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: active ? color.withValues(alpha: 0.5) : AppTheme.surfaceBorder),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+          color: active ? AppTheme.textPrimary : AppTheme.textMuted,
         ),
       ),
     );

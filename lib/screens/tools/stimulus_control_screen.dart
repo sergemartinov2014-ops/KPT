@@ -25,11 +25,11 @@ class _StimulusControlScreenState extends State<StimulusControlScreen> with Sing
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 5),
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _pulseAnimation = Tween<double>(begin: 0.94, end: 1.06).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
     );
 
     _startTimer();
@@ -42,9 +42,9 @@ class _StimulusControlScreenState extends State<StimulusControlScreen> with Sing
       final remaining = _endTime.difference(DateTime.now()).inSeconds;
       if (remaining <= 0) {
         timer.cancel();
-        setState(() {
-          _timerFinished = true;
-        });
+        if (mounted) {
+          setState(() => _timerFinished = true);
+        }
         try {
           await _chimePlayer.setAsset('assets/audio/ambient/long_bowl.mp3');
           await _chimePlayer.setVolume(0.5);
@@ -64,139 +64,143 @@ class _StimulusControlScreenState extends State<StimulusControlScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final Color orbColor = _timerFinished ? AppTheme.success : AppTheme.accent;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF070A12), // Максимально мягкий ночной фон
+      backgroundColor: const Color(0xFF04060B),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: const Text('Стимульный контроль'),
+        title: const Text('Правило 20 минут'),
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 36),
         children: [
-          const SizedBox(height: 16),
-          // Пульсирующая сфера без тикающих секунд (защита от Clock-Watching)
+          const SizedBox(height: 20),
+          // Многослойная концентрическая сфера (Endel-style)
           Center(
             child: ScaleTransition(
               scale: _pulseAnimation,
               child: Container(
-                width: 170,
-                height: 170,
+                width: 220,
+                height: 220,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.surfaceElevated,
-                  border: Border.all(
-                    color: _timerFinished ? AppTheme.success : AppTheme.accent.withValues(alpha: 0.3),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_timerFinished ? AppTheme.success : AppTheme.accent).withValues(alpha: 0.15),
-                      blurRadius: 30,
-                      spreadRadius: 6,
-                    ),
-                  ],
+                  border: Border.all(color: orbColor.withValues(alpha: 0.12), width: 1),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _timerFinished ? Icons.check_circle_outline : Icons.spa_outlined,
-                      size: 36,
-                      color: _timerFinished ? AppTheme.success : AppTheme.accent,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _timerFinished ? 'Пора вернуться' : 'Вне кровати',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: _timerFinished ? AppTheme.success : AppTheme.textPrimary,
+                padding: const EdgeInsets.all(22),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.surface,
+                    border: Border.all(color: orbColor.withValues(alpha: 0.35), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: orbColor.withValues(alpha: 0.12),
+                        blurRadius: 40,
+                        spreadRadius: 4,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _timerFinished ? 'Если появилась сонливость' : 'Таймер идет в фоне',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _timerFinished ? Icons.check_rounded : Icons.nights_stay_outlined,
+                        size: 30,
+                        color: orbColor,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _timerFinished ? 'Цикл завершен' : 'Вне постели',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: _timerFinished ? AppTheme.success : AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _timerFinished ? 'Вернитесь при сонливости' : 'Фоновый отсчет 20 мин',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
 
-          // Пояснение: почему скрыт секундный таймер (Клинический стандарт)
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.surfaceBorder),
-            ),
+            padding: const EdgeInsets.all(18),
+            decoration: AppTheme.bentoBox(),
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.visibility_off_outlined, color: AppTheme.accent, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Не следите за часами (Clock-Watching)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                    ),
-                  ],
-                ),
+                Text('ЗАЩИТА ОТ ЧАСОВОЙ ТРЕВОГИ', style: AppTheme.sectionLabel),
                 SizedBox(height: 8),
                 Text(
-                  'Мы намеренно не показываем тикающие секунды. Посекундный отсчет стимулирует тревогу и держит мозг в тонусе.\n\n'
-                  'Вы не должны «высиживать» время: перейдите в другую комнату при слабом свете. Как только почувствуете тяжесть в веках или легкую дремоту — возвращайтесь в кровать.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
+                  'Цифровой секундомер скрыт намеренно. Наблюдение за минутами ночью активирует кору головного мозга и усиливает бессонницу. По окончании 20 минут прозвучит мягкий сигнал тибетской чаши.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          const Text('Рекомендуемые спокойные занятия:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
+          const Text('СПОКОЙНЫЕ ЗАНЯТИЯ В ДРУГОЙ КОМНАТЕ', style: AppTheme.sectionLabel),
+          const SizedBox(height: 12),
 
-          _buildActivityTile(
-            Icons.menu_book,
-            'Почитать бумажную книгу',
-            'При слабом желтом свете. Без ярких ламп и экранов гаджетов.',
-          ),
-          _buildActivityTile(
-            Icons.air,
-            'Дыхательная практика 4-7-8',
-            'Замедляет сердцебиение и активирует парасимпатическую систему.',
+          _buildActionRow(
+            Icons.waves_rounded,
+            'Дыхание 4–7–8',
+            'Снижение частоты пульса за 4 цикла',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BreathingScreen())),
           ),
-          _buildActivityTile(
-            Icons.headphones,
-            'Звуки природы или дождя',
-            'Включите шум дождя или поющие чаши для разгрузки мыслей.',
+          _buildActionRow(
+            Icons.graphic_eq_rounded,
+            'Акустический фон',
+            'Включить шум дождя или поющие чаши',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AmbientPlayerScreen())),
           ),
-          _buildActivityTile(
-            Icons.local_cafe_outlined,
-            'Сделать глоток теплой воды',
-            'Небольшое количество воды комнатной температуры или травяного сбора.',
+          _buildActionRow(
+            Icons.menu_book_outlined,
+            'Чтение бумажной книги',
+            'При теплом приглушенном свете без экранов',
           ),
-          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _buildActivityTile(IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, color: AppTheme.accent),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-        trailing: onTap != null ? const Icon(Icons.chevron_right, size: 20, color: AppTheme.textMuted) : null,
+  Widget _buildActionRow(IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: AppTheme.bentoBox(radius: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: AppTheme.accent, size: 20),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.textMuted),
+            ],
+          ),
+        ),
       ),
     );
   }

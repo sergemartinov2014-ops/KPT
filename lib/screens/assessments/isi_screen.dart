@@ -14,7 +14,7 @@ class IsiScreen extends StatefulWidget {
 
 class _IsiScreenState extends State<IsiScreen> {
   Map<String, dynamic>? _quizData;
-  final Map<int, int> _answers = {}; // question index -> score (0..4)
+  final Map<int, int> _answers = {};
   bool _isSubmitted = false;
 
   @override
@@ -25,9 +25,11 @@ class _IsiScreenState extends State<IsiScreen> {
 
   Future<void> _loadQuestions() async {
     final str = await rootBundle.loadString('assets/data/isi_questions_ru.json');
-    setState(() {
-      _quizData = json.decode(str);
-    });
+    if (mounted) {
+      setState(() {
+        _quizData = json.decode(str);
+      });
+    }
   }
 
   int get _totalScore => _answers.values.fold(0, (sum, v) => sum + v);
@@ -45,114 +47,169 @@ class _IsiScreenState extends State<IsiScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Тест выраженности бессонницы (ISI)'),
+        title: const Text('Шкала инсомнии (ISI)'),
+        actions: [
+          if (!_isSubmitted)
+            Padding(
+              padding: const EdgeInsets.only(right: 20),
+              child: Center(
+                child: Text(
+                  '${_answers.length}/${questions.length}',
+                  style: AppTheme.monoFigures(fontSize: 14, color: AppTheme.accent),
+                ),
+              ),
+            ),
+        ],
       ),
       body: _isSubmitted
-          ? _buildResultView(questions.length)
-          : ListView(
-              padding: const EdgeInsets.all(16),
+          ? _buildResultView()
+          : Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.surfaceBorder),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_quizData!['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.accent)),
-                      const SizedBox(height: 6),
-                      Text(_quizData!['description'], style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                    ],
-                  ),
+                LinearProgressIndicator(
+                  value: _answers.length / questions.length,
+                  backgroundColor: AppTheme.surfaceElevated,
+                  color: AppTheme.accent,
+                  minHeight: 2,
                 ),
-                const SizedBox(height: 20),
-                ...List.generate(questions.length, (i) => _buildQuestionCard(i, questions[i])),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: isComplete
-                      ? () {
-                          final score = _totalScore;
-                          final interpretations = _quizData!['interpretations'] as List;
-                          final interp = interpretations.firstWhere(
-                            (it) => score >= it['min'] && score <= it['max'],
-                            orElse: () => interpretations.last,
-                          );
-                          context.read<SleepProvider>().saveIsiResult(score, interp['title']);
-                          setState(() => _isSubmitted = true);
-                        }
-                      : null,
-                  child: Text(isComplete ? 'Показать результат' : 'Ответьте на все 7 вопросов (${_answers.length}/7)'),
-                ),
-                const SizedBox(height: 40),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildQuestionCard(int index, dynamic q) {
-    final options = q['options'] as List;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${index + 1}. ${q['text']}',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            ...options.map((opt) {
-              final score = opt['score'] as int;
-              final isSelected = _answers[index] == score;
-              return InkWell(
-                onTap: () => setState(() => _answers[index] = score),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.accent.withValues(alpha: 0.15) : AppTheme.surfaceElevated,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected ? AppTheme.accent : AppTheme.surfaceBorder,
-                    ),
-                  ),
-                  child: Row(
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                     children: [
-                      Icon(
-                        isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                        size: 18,
-                        color: isSelected ? AppTheme.accent : AppTheme.textMuted,
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: AppTheme.bentoBox(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('КЛИНИЧЕСКИЙ СКРИНИНГ • 7 ВОПРОСОВ', style: AppTheme.sectionLabel),
+                            const SizedBox(height: 8),
+                            Text(
+                              _quizData!['description'],
+                              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          opt['text'],
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      const SizedBox(height: 18),
+                      ...List.generate(questions.length, (i) => _buildQuestionBento(i, questions[i])),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isComplete
+                              ? () {
+                                  final score = _totalScore;
+                                  final interpretations = _quizData!['interpretations'] as List;
+                                  final interp = interpretations.firstWhere(
+                                    (it) => score >= it['min'] && score <= it['max'],
+                                    orElse: () => interpretations.last,
+                                  );
+                                  context.read<SleepProvider>().saveIsiResult(score, interp['title']);
+                                  setState(() => _isSubmitted = true);
+                                }
+                              : null,
+                          child: Text(
+                            isComplete
+                                ? 'Рассчитать клинический индекс'
+                                : 'Ответьте на все вопросы (${_answers.length} из ${questions.length})',
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
-          ],
-        ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildQuestionBento(int index, dynamic q) {
+    final options = q['options'] as List;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: AppTheme.bentoBox(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '0${index + 1}',
+                style: AppTheme.monoFigures(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.accent),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  q['text'],
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...options.map((opt) {
+            final score = opt['score'] as int;
+            final isSelected = _answers[index] == score;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: GestureDetector(
+                onTap: () => setState(() => _answers[index] = score),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppTheme.primary.withValues(alpha: 0.18) : AppTheme.surfaceElevated,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? AppTheme.accent : AppTheme.surfaceBorder,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.accent : AppTheme.surface,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$score',
+                            style: AppTheme.monoFigures(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected ? AppTheme.background : AppTheme.textMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          opt['text'],
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
 
-  Widget _buildResultView(int totalQuestions) {
+  Widget _buildResultView() {
     final score = _totalScore;
     final interpretations = _quizData!['interpretations'] as List;
     final interp = interpretations.firstWhere(
@@ -160,57 +217,68 @@ class _IsiScreenState extends State<IsiScreen> {
       orElse: () => interpretations.last,
     );
 
-    Color scoreColor = score <= 7
+    final Color scoreColor = score <= 7
         ? AppTheme.success
         : (score <= 14 ? AppTheme.warning : AppTheme.error);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         Center(
           child: Container(
-            width: 140,
-            height: 140,
+            width: 164,
+            height: 164,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: scoreColor.withValues(alpha: 0.12),
-              border: Border.all(color: scoreColor, width: 3),
+              color: AppTheme.surface,
+              border: Border.all(color: scoreColor.withValues(alpha: 0.5), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: scoreColor.withValues(alpha: 0.12),
+                  blurRadius: 36,
+                  spreadRadius: 4,
+                ),
+              ],
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const Text('ИНДЕКС ISI', style: AppTheme.sectionLabel),
+                const SizedBox(height: 4),
                 Text(
                   '$score',
-                  style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: scoreColor),
+                  style: AppTheme.monoFigures(fontSize: 52, fontWeight: FontWeight.w700, color: scoreColor),
                 ),
-                const Text('из 28 баллов', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                const Text('из 28 баллов', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 24),
-        Center(
-          child: Text(
-            interp['title'],
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: scoreColor),
-          ),
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 28),
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.surfaceBorder),
+          padding: const EdgeInsets.all(20),
+          decoration: AppTheme.bentoBox(
+            borderColor: scoreColor.withValues(alpha: 0.35),
           ),
-          child: Text(
-            interp['description'],
-            style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary, height: 1.5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('КЛИНИЧЕСКАЯ ИНТЕРПРЕТАЦИЯ', style: AppTheme.sectionLabel),
+              const SizedBox(height: 8),
+              Text(
+                interp['title'],
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: scoreColor),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                interp['description'],
+                style: const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary, height: 1.5),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         OutlinedButton(
           onPressed: () {
             setState(() {
@@ -218,7 +286,7 @@ class _IsiScreenState extends State<IsiScreen> {
               _isSubmitted = false;
             });
           },
-          child: const Text('Пройти тест заново'),
+          child: const Text('Пройти тестирование повторно'),
         ),
       ],
     );

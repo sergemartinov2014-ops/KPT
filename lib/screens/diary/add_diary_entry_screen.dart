@@ -17,19 +17,18 @@ class _AddDiaryEntryScreenState extends State<AddDiaryEntryScreen> {
 
   TimeOfDay _bedTime = const TimeOfDay(hour: 23, minute: 30);
   TimeOfDay _trySleepTime = const TimeOfDay(hour: 23, minute: 45);
-  int _solMinutes = 30; // Латентность засыпания (мин)
+  int _solMinutes = 25;
   int _awakeningsCount = 1;
-  int _wasoMinutes = 20; // Пробуждения среди ночи (мин)
+  int _wasoMinutes = 15;
   TimeOfDay _wakeTime = const TimeOfDay(hour: 7, minute: 0);
   TimeOfDay _outOfBedTime = const TimeOfDay(hour: 7, minute: 15);
-  int _qualityRating = 3; // 1 to 5
+  int _qualityRating = 3;
   int _napMinutes = 0;
   final TextEditingController _notesController = TextEditingController();
 
-  // Вычисляемые параметры на лету
   int get _timeInBedMinutes {
-    int bedTotal = _bedTime.hour * 60 + _bedTime.minute;
-    int outTotal = _outOfBedTime.hour * 60 + _outOfBedTime.minute;
+    final int bedTotal = _bedTime.hour * 60 + _bedTime.minute;
+    final int outTotal = _outOfBedTime.hour * 60 + _outOfBedTime.minute;
     if (outTotal < bedTotal) {
       return (24 * 60 - bedTotal) + outTotal;
     }
@@ -37,8 +36,8 @@ class _AddDiaryEntryScreenState extends State<AddDiaryEntryScreen> {
   }
 
   int get _morningAwakeMinutes {
-    int wakeTotal = _wakeTime.hour * 60 + _wakeTime.minute;
-    int outTotal = _outOfBedTime.hour * 60 + _outOfBedTime.minute;
+    final int wakeTotal = _wakeTime.hour * 60 + _wakeTime.minute;
+    final int outTotal = _outOfBedTime.hour * 60 + _outOfBedTime.minute;
     return outTotal >= wakeTotal ? (outTotal - wakeTotal) : 0;
   }
 
@@ -47,126 +46,256 @@ class _AddDiaryEntryScreenState extends State<AddDiaryEntryScreen> {
   bool get _isInputValid => _totalAwakeMinutes <= _timeInBedMinutes && _timeInBedMinutes > 0;
 
   int get _totalSleepMinutes {
-    int tst = _timeInBedMinutes - _totalAwakeMinutes;
+    final int tst = _timeInBedMinutes - _totalAwakeMinutes;
     return tst > 0 ? tst : 0;
   }
 
   double get _sleepEfficiency {
     if (_timeInBedMinutes <= 0) return 0.0;
-    double se = (_totalSleepMinutes / _timeInBedMinutes) * 100.0;
-    return se > 100.0 ? 100.0 : (se < 0 ? 0 : se);
+    final double se = (_totalSleepMinutes / _timeInBedMinutes) * 100.0;
+    return se.clamp(0.0, 100.0);
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final se = _sleepEfficiency;
-    Color seColor = se >= 85 ? AppTheme.success : (se >= 80 ? AppTheme.warning : AppTheme.error);
+    final Color seColor = se >= 85 ? AppTheme.success : (se >= 80 ? AppTheme.warning : AppTheme.error);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Запись в дневник сна'),
+        title: const Text('Утренний отчет'),
       ),
       body: Column(
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
-                if (!_isInputValid) ...[
+                if (!_isInputValid)
                   Container(
                     padding: const EdgeInsets.all(14),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.error.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.error.withValues(alpha: 0.4)),
+                    margin: const EdgeInsets.only(bottom: 18),
+                    decoration: AppTheme.bentoBox(
+                      color: AppTheme.error.withValues(alpha: 0.08),
+                      borderColor: AppTheme.error.withValues(alpha: 0.35),
+                      radius: 14,
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, color: AppTheme.error, size: 22),
+                        const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Время бодрствования ($_totalAwakeMinutes мин) превышает время в кровати ($_timeInBedMinutes мин). Проверьте время отбоя или длительность засыпания.',
+                            'Суммарное бодрствование ($_totalAwakeMinutes мин) превышает время в постели ($_timeInBedMinutes мин). Проверьте время отбоя и подъема.',
                             style: const TextStyle(fontSize: 12, color: AppTheme.error, height: 1.4),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-                _buildSectionHeader('1. Вечер и засыпание'),
-                _buildTimePickerTile('Во сколько вы легли в кровать?', _bedTime, (t) => setState(() => _bedTime = t)),
-                _buildTimePickerTile('Во сколько вы начали пытаться уснуть?', _trySleepTime, (t) => setState(() => _trySleepTime = t)),
-                _buildNumberSlider('Сколько минут ушло на засыпание?', _solMinutes, 0, 180, 5, 'мин', (v) => setState(() => _solMinutes = v)),
 
-                const SizedBox(height: 16),
-                _buildSectionHeader('2. Ночные пробуждения'),
-                _buildCounterTile('Сколько раз вы просыпались ночью?', _awakeningsCount, (c) => setState(() => _awakeningsCount = c)),
-                _buildNumberSlider('Суммарно минут бодрствования ночью:', _wasoMinutes, 0, 240, 5, 'мин', (v) => setState(() => _wasoMinutes = v)),
+                // СЕКЦИЯ 1: ВЕЧЕР
+                const Text('1. ОТХОД КО СНУ', style: AppTheme.sectionLabel),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: AppTheme.bentoBox(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildCompactTimeBox(
+                              'Легли в постель',
+                              _bedTime,
+                              (t) => setState(() => _bedTime = t),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildCompactTimeBox(
+                              'Попытка уснуть',
+                              _trySleepTime,
+                              (t) => setState(() => _trySleepTime = t),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInlineSlider(
+                        label: 'Длительность засыпания (SOL)',
+                        value: _solMinutes,
+                        min: 0,
+                        max: 180,
+                        step: 5,
+                        unit: 'мин',
+                        onChanged: (v) => setState(() => _solMinutes = v),
+                      ),
+                    ],
+                  ),
+                ),
 
-                const SizedBox(height: 16),
-                _buildSectionHeader('3. Утренний подъем'),
-                _buildTimePickerTile('Во сколько вы окончательно проснулись?', _wakeTime, (t) => setState(() => _wakeTime = t)),
-                _buildTimePickerTile('Во сколько встали с кровати?', _outOfBedTime, (t) => setState(() => _outOfBedTime = t)),
+                const SizedBox(height: 22),
 
-                const SizedBox(height: 16),
-                _buildSectionHeader('4. Оценка и дневной сон'),
-                _buildQualityRating(),
-                _buildNumberSlider('Дневной сон вчера (если был):', _napMinutes, 0, 120, 15, 'мин', (v) => setState(() => _napMinutes = v)),
-                const SizedBox(height: 16),
+                // СЕКЦИЯ 2: НОЧНЫЕ ПРОБУЖДЕНИЯ
+                const Text('2. СЕРЕДИНА НОЧИ', style: AppTheme.sectionLabel),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: AppTheme.bentoBox(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Число ночных пробуждений', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                          Row(
+                            children: [
+                              _buildStepButton(
+                                Icons.remove_rounded,
+                                _awakeningsCount > 0 ? () => setState(() => _awakeningsCount--) : null,
+                              ),
+                              SizedBox(
+                                width: 36,
+                                child: Center(
+                                  child: Text(
+                                    '$_awakeningsCount',
+                                    style: AppTheme.monoFigures(fontSize: 16, fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                              ),
+                              _buildStepButton(
+                                Icons.add_rounded,
+                                () => setState(() => _awakeningsCount++),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Divider(),
+                      ),
+                      _buildInlineSlider(
+                        label: 'Бодрствование ночью (WASO)',
+                        value: _wasoMinutes,
+                        min: 0,
+                        max: 240,
+                        step: 5,
+                        unit: 'мин',
+                        onChanged: (v) => setState(() => _wasoMinutes = v),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                // СЕКЦИЯ 3: УТРО
+                const Text('3. УТРЕННИЙ ПОДЪЕМ', style: AppTheme.sectionLabel),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: AppTheme.bentoBox(),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactTimeBox(
+                          'Проснулись',
+                          _wakeTime,
+                          (t) => setState(() => _wakeTime = t),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactTimeBox(
+                          'Встали с постели',
+                          _outOfBedTime,
+                          (t) => setState(() => _outOfBedTime = t),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                // СЕКЦИЯ 4: СУБЪЕКТИВНЫЙ ТОНУС И ДНЕВНОЙ СОН
+                const Text('4. КАЧЕСТВО СНА И ДНЕВНОЙ СОН', style: AppTheme.sectionLabel),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: AppTheme.bentoBox(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Субъективное качество ночи', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                      const SizedBox(height: 12),
+                      _buildRatingSelector(),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Divider(),
+                      ),
+                      _buildInlineSlider(
+                        label: 'Дневной сон накануне',
+                        value: _napMinutes,
+                        min: 0,
+                        max: 120,
+                        step: 15,
+                        unit: 'мин',
+                        onChanged: (v) => setState(() => _napMinutes = v),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
 
-          // Живой расчет эффективности сна внизу
+          // Нижний телеметрический бар
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
             decoration: const BoxDecoration(
-              color: AppTheme.surfaceElevated,
+              color: AppTheme.surface,
               border: Border(top: BorderSide(color: AppTheme.surfaceBorder)),
             ),
             child: SafeArea(
+              top: false,
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Чистый сон: ${_totalSleepMinutes ~/ 60} ч ${_totalSleepMinutes % 60} мин',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                          ),
-                          Text(
-                            'В кровати: ${_timeInBedMinutes ~/ 60} ч ${_timeInBedMinutes % 60} мин',
-                            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                          ),
-                        ],
+                      _buildTelemetryMetric(
+                        'В ПОСТЕЛИ (TIB)',
+                        '${_timeInBedMinutes ~/ 60}ч ${(_timeInBedMinutes % 60).toString().padLeft(2, '0')}м',
+                        AppTheme.textSecondary,
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            _isInputValid ? '${se.toStringAsFixed(1)}%' : '—',
-                            style: TextStyle(
-                              color: _isInputValid ? seColor : AppTheme.textMuted,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22,
-                            ),
-                          ),
-                          const Text('Эффективность', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                        ],
+                      _buildTelemetryMetric(
+                        'ЧИСТЫЙ СОН (TST)',
+                        '${_totalSleepMinutes ~/ 60}ч ${(_totalSleepMinutes % 60).toString().padLeft(2, '0')}м',
+                        AppTheme.textPrimary,
+                      ),
+                      _buildTelemetryMetric(
+                        'ЭФФЕКТИВНОСТЬ',
+                        _isInputValid ? '${se.toStringAsFixed(1)}%' : '—',
+                        _isInputValid ? seColor : AppTheme.textMuted,
+                        alignRight: true,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _isInputValid ? _saveEntry : null,
-                      child: const Text('Сохранить запись'),
+                      child: const Text('Сохранить запись ночи'),
                     ),
                   ),
                 ],
@@ -178,124 +307,141 @@ class _AddDiaryEntryScreenState extends State<AddDiaryEntryScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.accent)),
-    );
-  }
-
-  Widget _buildTimePickerTile(String title, TimeOfDay time, Function(TimeOfDay) onChanged) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(title, style: const TextStyle(fontSize: 14)),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceElevated,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.surfaceBorder),
-          ),
-          child: Text(
-            '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-          ),
-        ),
-        onTap: () async {
-          final t = await showTimePicker(context: context, initialTime: time);
-          if (t != null) onChanged(t);
-        },
-      ),
-    );
-  }
-
-  Widget _buildNumberSlider(String title, int value, int min, int max, int step, String unit, Function(int) onChanged) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+  Widget _buildCompactTimeBox(String label, TimeOfDay time, ValueChanged<TimeOfDay> onChanged) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () async {
+        final t = await showTimePicker(context: context, initialTime: time);
+        if (t != null) onChanged(t);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: AppTheme.bentoBox(color: AppTheme.surfaceElevated, radius: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(child: Text(title, style: const TextStyle(fontSize: 14))),
-                Text('$value $unit', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accent)),
+                Text(
+                  '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                  style: AppTheme.monoFigures(fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+                const Icon(Icons.schedule_rounded, size: 16, color: AppTheme.accent),
               ],
             ),
-            Slider(
-              value: value.toDouble(),
-              min: min.toDouble(),
-              max: max.toDouble(),
-              divisions: (max - min) ~/ step,
-              activeColor: AppTheme.accent,
-              onChanged: (v) => onChanged(v.toInt()),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCounterTile(String title, int count, Function(int) onChanged) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(title, style: const TextStyle(fontSize: 14)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+  Widget _buildInlineSlider({
+    required String label,
+    required int value,
+    required int min,
+    required int max,
+    required int step,
+    required String unit,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline, color: AppTheme.accent),
-              onPressed: count > 0 ? () => onChanged(count - 1) : null,
-            ),
-            Text('$count', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: AppTheme.accent),
-              onPressed: () => onChanged(count + 1),
+            Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+            Text(
+              '$value $unit',
+              style: AppTheme.monoFigures(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.accent),
             ),
           ],
         ),
+        const SizedBox(height: 4),
+        Slider(
+          value: value.toDouble(),
+          min: min.toDouble(),
+          max: max.toDouble(),
+          divisions: (max - min) ~/ step,
+          onChanged: (v) => onChanged(v.toInt()),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepButton(IconData icon, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: AppTheme.bentoBox(color: AppTheme.surfaceElevated, radius: 10),
+        child: Icon(icon, size: 18, color: onTap != null ? AppTheme.textPrimary : AppTheme.textMuted),
       ),
     );
   }
 
-  Widget _buildQualityRating() {
-    final emojis = ['😫', '🙁', '😐', '🙂', '😊'];
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Как вы оцениваете качество сна?', style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(5, (index) {
-                final rating = index + 1;
-                final isSelected = _qualityRating == rating;
-                return InkWell(
-                  onTap: () => setState(() => _qualityRating = rating),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.accent.withValues(alpha: 0.2) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isSelected ? AppTheme.accent : Colors.transparent),
-                    ),
-                    child: Text(emojis[index], style: const TextStyle(fontSize: 26)),
+  Widget _buildRatingSelector() {
+    final labels = ['Тяжело', 'Слабо', 'Средне', 'Хорошо', 'Глубоко'];
+    return Row(
+      children: List.generate(5, (index) {
+        final rating = index + 1;
+        final isSelected = _qualityRating == rating;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: index < 4 ? 6 : 0),
+            child: GestureDetector(
+              onTap: () => setState(() => _qualityRating = rating),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.primary.withValues(alpha: 0.22) : AppTheme.surfaceElevated,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? AppTheme.accent : AppTheme.surfaceBorder,
                   ),
-                );
-              }),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      '$rating',
+                      style: AppTheme.monoFigures(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? AppTheme.accent : AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      labels[index],
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: isSelected ? AppTheme.textPrimary : AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildTelemetryMetric(String label, String value, Color valueColor, {bool alignRight = false}) {
+    return Column(
+      crossAxisAlignment: alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: AppTheme.textMuted)),
+        const SizedBox(height: 4),
+        Text(value, style: AppTheme.monoFigures(fontSize: 18, fontWeight: FontWeight.w700, color: valueColor)),
+      ],
     );
   }
 
@@ -323,8 +469,7 @@ class _AddDiaryEntryScreenState extends State<AddDiaryEntryScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Запись сохранена! Эффективность сна: ${_sleepEfficiency.toStringAsFixed(1)}%'),
-        backgroundColor: AppTheme.surfaceElevated,
+        content: Text('Запись сохранена • Эффективность: ${_sleepEfficiency.toStringAsFixed(1)}%'),
       ),
     );
   }
