@@ -30,7 +30,7 @@ jobs:
           mkdir -p build/ios/ipa/Payload
           cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
-          zip -r somnia.ipa Payload
+          zip -r -y somnia.ipa Payload
           cd ../../..
 
       - name: Upload IPA Artifact
