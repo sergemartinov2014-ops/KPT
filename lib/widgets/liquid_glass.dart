@@ -53,16 +53,16 @@ class LiquidGlass extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.28),
-                Colors.white.withValues(alpha: 0.08),
-                Colors.white.withValues(alpha: 0.02),
+                Colors.white.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0.03),
+                Colors.white.withValues(alpha: 0.005),
               ],
             ),
         boxShadow: [
           // Мягкая пространственная тень стекла
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 24,
+            color: Colors.black.withValues(alpha: 0.60),
+            blurRadius: 28,
             offset: const Offset(0, 10),
             spreadRadius: -2,
           ),
@@ -100,10 +100,10 @@ class LiquidGlass extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      (surfaceColor ?? const Color(0xFF101932))
-                          .withValues(alpha: 0.58),
-                      (surfaceColor ?? const Color(0xFF060A14))
-                          .withValues(alpha: 0.42),
+                      (surfaceColor ?? const Color(0xFF070B16))
+                          .withValues(alpha: 0.88),
+                      (surfaceColor ?? const Color(0xFF020409))
+                          .withValues(alpha: 0.78),
                     ],
                   ),
                 ),
@@ -120,11 +120,11 @@ class LiquidGlass extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.16),
-                          Colors.white.withValues(alpha: 0.03),
+                          Colors.white.withValues(alpha: 0.035),
+                          Colors.white.withValues(alpha: 0.008),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.40, 1.0],
+                        stops: const [0.0, 0.35, 0.85],
                       ),
                     ),
                   ),
@@ -143,7 +143,7 @@ class LiquidGlass extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        Colors.white.withValues(alpha: 0.32),
+                        Colors.white.withValues(alpha: 0.14),
                         Colors.transparent,
                       ],
                     ),

@@ -12,11 +12,11 @@ class AppTheme {
   static const Color surfaceBorder = Color(0xFF1C2436); // Hairline Structural Border
 
   // Liquid Glass Meta-Material Translucent Layers
-  static const Color glassSurface = Color(0x38101728); // 22% Translucent Midnight Glass
-  static const Color glassSurfaceElevated = Color(0x5918233C); // 35% Translucent Elevated Glass
-  static const Color glassUltraThin = Color(0x280D1424); // 16% Ultra-Thin Floating Glass
-  static const Color glassHighlight = Color(0x38FFFFFF); // 22% Specular Reflection Edge
-  static const Color glassBorder = Color(0x1AFFFFFF); // 10% Hairline Glass Border
+  static const Color glassSurface = Color(0xEB060A14); // 22% Translucent Midnight Glass
+  static const Color glassSurfaceElevated = Color(0xF2090E1A); // 35% Translucent Elevated Glass
+  static const Color glassUltraThin = Color(0xB3050812); // 16% Ultra-Thin Floating Glass
+  static const Color glassHighlight = Color(0x1AFFFFFF); // 22% Specular Reflection Edge
+  static const Color glassBorder = Color(0x0FFFFFFF); // 10% Hairline Glass Border
 
   // Apple Semantic Colors (iOS 26 / HIG)
   static const Color systemIndigo = Color(0xFF6366F1); // Primary Focus & Anchor
@@ -77,12 +77,12 @@ class AppTheme {
       color: surfaceColor ?? glassSurface,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: Colors.white.withValues(alpha: 0.08),
         width: 1.1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.35),
+          color: Colors.black.withValues(alpha: 0.55),
           blurRadius: 18,
           offset: const Offset(0, 8),
           spreadRadius: -2,
@@ -112,14 +112,14 @@ class AppTheme {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1E293B).withValues(alpha: 0.35),
-                    const Color(0xFF0F172A).withValues(alpha: 0.20),
+                    const Color(0xFF080C18).withValues(alpha: 0.90),
+                    const Color(0xFF03050C).withValues(alpha: 0.80),
                   ],
                 )
               : null),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: borderColor ?? Colors.white.withValues(alpha: 0.18),
+        color: borderColor ?? Colors.white.withValues(alpha: 0.08),
         width: 1.1,
       ),
       boxShadow: [

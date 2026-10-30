@@ -216,7 +216,7 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     config.formattedTime,
                     style: AppTheme.monoFigures(
-                      fontSize: 34,
+                      fontSize: 24,
                       fontWeight: FontWeight.w700,
                       color: isEnabled ? AppTheme.textPrimary : AppTheme.textMuted,
                     ),

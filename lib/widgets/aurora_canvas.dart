@@ -45,9 +45,9 @@ class AuroraCanvas extends StatelessWidget {
                   gradient: RadialGradient(
                     colors: [
                       (primaryGlow ?? const Color(0xFF4F46E5))
-                          .withValues(alpha: 0.22),
+                          .withValues(alpha: 0.04),
                       (primaryGlow ?? const Color(0xFF312E81))
-                          .withValues(alpha: 0.08),
+                          .withValues(alpha: 0.01),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.50, 1.0],
@@ -71,9 +71,9 @@ class AuroraCanvas extends StatelessWidget {
                   gradient: RadialGradient(
                     colors: [
                       (secondaryGlow ?? const Color(0xFF0369A1))
-                          .withValues(alpha: 0.14),
+                          .withValues(alpha: 0.07),
                       (secondaryGlow ?? const Color(0xFF075985))
-                          .withValues(alpha: 0.04),
+                          .withValues(alpha: 0.02),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.50, 1.0],
@@ -95,8 +95,8 @@ class AuroraCanvas extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF581C87).withValues(alpha: 0.10),
-                    const Color(0xFF3B0764).withValues(alpha: 0.03),
+                    const Color(0xFF581C87).withValues(alpha: 0.04),
+                    const Color(0xFF3B0764).withValues(alpha: 0.01),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.50, 1.0],
