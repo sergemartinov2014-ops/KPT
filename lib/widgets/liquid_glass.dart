@@ -53,25 +53,25 @@ class LiquidGlass extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.36),
-                Colors.white.withValues(alpha: 0.12),
-                Colors.white.withValues(alpha: 0.04),
+                Colors.white.withValues(alpha: 0.15),
+                Colors.white.withValues(alpha: 0.05),
+                Colors.white.withValues(alpha: 0.02),
               ],
             ),
         boxShadow: [
           // Мягкая пространственная тень стекла
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.40),
-            blurRadius: 22,
+            color: Colors.black.withValues(alpha: 0.50),
+            blurRadius: 24,
             offset: const Offset(0, 10),
             spreadRadius: -2,
           ),
-          // Опциональное внешнее свечение при активном статусе
+          // Опциональное мягкое внешнее свечение при активном статусе
           if (glowColor != null && glowRadius > 0)
             BoxShadow(
-              color: glowColor!.withValues(alpha: 0.35),
+              color: glowColor!.withValues(alpha: 0.12),
               blurRadius: glowRadius,
-              spreadRadius: 2,
+              spreadRadius: 0,
             ),
         ],
       ),
@@ -92,7 +92,7 @@ class LiquidGlass extends StatelessWidget {
                 ),
               ),
 
-            // 2. Полупрозрачный стеклянный градиент (Frosted Glass Tint)
+            // 2. Глубокий затемнённый стеклянный градиент (Deep Smoky Glass Tint)
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -100,17 +100,17 @@ class LiquidGlass extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      (surfaceColor ?? const Color(0xFF131D36))
-                          .withValues(alpha: 0.55),
-                      (surfaceColor ?? const Color(0xFF090E1D))
-                          .withValues(alpha: 0.30),
+                      (surfaceColor ?? const Color(0xFF0C1222))
+                          .withValues(alpha: 0.78),
+                      (surfaceColor ?? const Color(0xFF050811))
+                          .withValues(alpha: 0.62),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // 3. Верхний световой скос (Specular Sheen)
+            // 3. Мягкий сатиновый световой скос (Subtle Satin Sheen)
             if (showShine)
               Positioned.fill(
                 child: IgnorePointer(
@@ -120,11 +120,11 @@ class LiquidGlass extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.white.withValues(alpha: 0.22),
-                          Colors.white.withValues(alpha: 0.04),
+                          Colors.white.withValues(alpha: 0.08),
+                          Colors.white.withValues(alpha: 0.015),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.30, 1.0],
+                        stops: const [0.0, 0.25, 1.0],
                       ),
                     ),
                   ),

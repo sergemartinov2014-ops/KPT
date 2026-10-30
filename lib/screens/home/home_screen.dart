@@ -142,9 +142,9 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 24,
       blur: 24,
-      surfaceColor: isEnabled ? AppTheme.glassSurfaceElevated : AppTheme.glassSurface,
-      glowColor: isEnabled ? AppTheme.systemIndigo : null,
-      glowRadius: isEnabled ? 18 : 0,
+      surfaceColor: const Color(0xFF090E1A),
+      glowColor: null,
+      glowRadius: 0,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,9 +301,9 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 24,
       blur: 24,
-      surfaceColor: isMonitoring ? AppTheme.glassSurfaceElevated : AppTheme.glassSurface,
-      glowColor: isMonitoring ? AppTheme.systemTeal : null,
-      glowRadius: isMonitoring ? 18 : 0,
+      surfaceColor: const Color(0xFF090E1A),
+      glowColor: null,
+      glowRadius: 0,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,9 +421,9 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 26,
       blur: 24,
-      surfaceColor: AppTheme.glassSurfaceElevated,
-      glowColor: AppTheme.systemIndigo,
-      glowRadius: 16,
+      surfaceColor: const Color(0xFF0A0F1D),
+      glowColor: null,
+      glowRadius: 0,
       padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,9 +646,9 @@ class HomeScreen extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          AppTheme.warning.withValues(alpha: 0.35),
-          Colors.white.withValues(alpha: 0.08),
-          Colors.white.withValues(alpha: 0.02),
+          AppTheme.warning.withValues(alpha: 0.16),
+          Colors.white.withValues(alpha: 0.05),
+          Colors.white.withValues(alpha: 0.01),
         ],
       ),
       onTap: () {
@@ -688,9 +688,9 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 22,
       blur: 20,
-      surfaceColor: AppTheme.glassSurfaceElevated,
-      glowColor: AppTheme.accent,
-      glowRadius: 14,
+      surfaceColor: const Color(0xFF0A0F1D),
+      glowColor: null,
+      glowRadius: 0,
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -31,7 +31,7 @@ class AuroraCanvas extends StatelessWidget {
           ),
         ),
 
-        // 2. Верхнее ночное пятно свечения (Vibrant Indigo-Violet Aurora)
+        // 2. Верхнее ночное пятно свечения (Calm Nocturnal Indigo Aurora)
         if (showTopAurora)
           Positioned(
             top: -120,
@@ -44,20 +44,20 @@ class AuroraCanvas extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      (primaryGlow ?? const Color(0xFF6366F1))
-                          .withValues(alpha: 0.48),
                       (primaryGlow ?? const Color(0xFF4338CA))
-                          .withValues(alpha: 0.22),
+                          .withValues(alpha: 0.18),
+                      (primaryGlow ?? const Color(0xFF312E81))
+                          .withValues(alpha: 0.06),
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 0.45, 1.0],
+                    stops: const [0.0, 0.50, 1.0],
                   ),
                 ),
               ),
             ),
           ),
 
-        // 3. Нижнее ночное пятно свечения (Calm Bio-Teal / Cyan Aurora)
+        // 3. Нижнее ночное пятно свечения (Deep Marine Teal Aurora)
         if (showBottomAurora)
           Positioned(
             bottom: 20,
@@ -70,10 +70,10 @@ class AuroraCanvas extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      (secondaryGlow ?? const Color(0xFF0EA5E9))
-                          .withValues(alpha: 0.38),
-                      (secondaryGlow ?? const Color(0xFF0D9488))
-                          .withValues(alpha: 0.16),
+                      (secondaryGlow ?? const Color(0xFF0369A1))
+                          .withValues(alpha: 0.14),
+                      (secondaryGlow ?? const Color(0xFF075985))
+                          .withValues(alpha: 0.04),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.50, 1.0],
@@ -83,7 +83,7 @@ class AuroraCanvas extends StatelessWidget {
             ),
           ),
 
-        // 4. Тонкое акцентное пятно по центру (Moonlight Mist / Purple Glow)
+        // 4. Тонкое акцентное пятно по центру (Deep Midnight Purple Mist)
         Positioned(
           top: 320,
           right: -100,
@@ -95,11 +95,11 @@ class AuroraCanvas extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFA855F7).withValues(alpha: 0.30),
-                    const Color(0xFF818CF8).withValues(alpha: 0.12),
+                    const Color(0xFF581C87).withValues(alpha: 0.10),
+                    const Color(0xFF3B0764).withValues(alpha: 0.03),
                     Colors.transparent,
                   ],
-                  stops: const [0.0, 0.45, 1.0],
+                  stops: const [0.0, 0.50, 1.0],
                 ),
               ),
             ),
