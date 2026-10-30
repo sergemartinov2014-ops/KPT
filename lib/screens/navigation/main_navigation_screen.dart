@@ -37,18 +37,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
           child: LiquidGlass(
-            radius: 36,
+            shape: LiquidGlassShape.capsule,
+            variant: LiquidGlassVariant.ultraThin,
             blur: 28,
-            surfaceColor: AppTheme.glassUltraThin,
-            borderGradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.28),
-                Colors.white.withValues(alpha: 0.08),
-                Colors.white.withValues(alpha: 0.02),
-              ],
-            ),
+            surfaceColor: const Color(0xFF060914),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,

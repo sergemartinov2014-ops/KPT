@@ -154,9 +154,7 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 24,
       blur: 24,
-      surfaceColor: const Color(0xFF090E1A),
-      glowColor: null,
-      glowRadius: 0,
+      tint: isEnabled ? AppTheme.systemIndigo : null,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,9 +311,7 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 24,
       blur: 24,
-      surfaceColor: const Color(0xFF090E1A),
-      glowColor: null,
-      glowRadius: 0,
+      tint: isMonitoring ? AppTheme.systemTeal : null,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,9 +429,8 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 26,
       blur: 24,
-      surfaceColor: const Color(0xFF0A0F1D),
-      glowColor: null,
-      glowRadius: 0,
+      variant: LiquidGlassVariant.prominent,
+      tint: AppTheme.systemIndigo,
       padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,7 +556,7 @@ class HomeScreen extends StatelessWidget {
       return LiquidGlass(
         radius: 22,
         blur: 20,
-        surfaceColor: AppTheme.glassSurface,
+        tint: seColor,
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
@@ -609,7 +604,8 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 22,
       blur: 20,
-      surfaceColor: AppTheme.glassSurfaceElevated,
+      variant: LiquidGlassVariant.prominent,
+      tint: AppTheme.primary,
       onTap: () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDiaryEntryScreen()));
       },
@@ -653,16 +649,7 @@ class HomeScreen extends StatelessWidget {
     return LiquidGlass(
       radius: 22,
       blur: 20,
-      surfaceColor: AppTheme.glassSurface,
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          AppTheme.warning.withValues(alpha: 0.16),
-          Colors.white.withValues(alpha: 0.05),
-          Colors.white.withValues(alpha: 0.01),
-        ],
-      ),
+      tint: AppTheme.warning,
       onTap: () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const StimulusControlScreen()));
       },

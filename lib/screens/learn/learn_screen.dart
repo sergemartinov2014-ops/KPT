@@ -43,7 +43,7 @@ class _LearnScreenState extends State<LearnScreen> {
             const LiquidGlass(
               radius: 26,
               blur: 24,
-              surfaceColor: AppTheme.glassSurfaceElevated,
+              tint: AppTheme.systemIndigo,
               padding: EdgeInsets.all(22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

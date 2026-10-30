@@ -163,7 +163,7 @@ class ToolsScreen extends StatelessWidget {
       child: LiquidGlass(
         radius: 24,
         blur: 20,
-        surfaceColor: AppTheme.glassSurface,
+        tint: tagColor,
         onTap: onTap,
         padding: const EdgeInsets.all(18),
         child: Row(

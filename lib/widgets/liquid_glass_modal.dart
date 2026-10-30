@@ -70,8 +70,8 @@ class LiquidGlassSheet extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      const Color(0xFF161F30).withValues(alpha: 0.78),
-                      const Color(0xFF0C1322).withValues(alpha: 0.88),
+                      const Color(0xFF0C101E).withValues(alpha: 0.90),
+                      const Color(0xFF04060E).withValues(alpha: 0.82),
                     ],
                   ),
                 ),
@@ -87,8 +87,8 @@ class LiquidGlassSheet extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withValues(alpha: 0.20),
-                        Colors.white.withValues(alpha: 0.03),
+                        Colors.white.withValues(alpha: 0.04),
+                        Colors.white.withValues(alpha: 0.008),
                         Colors.transparent,
                       ],
                       stops: const [0.0, 0.18, 1.0],
@@ -107,7 +107,7 @@ class LiquidGlassSheet extends StatelessWidget {
                         ? BorderRadius.circular(radius)
                         : BorderRadius.vertical(top: Radius.circular(radius)),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.24),
+                      color: Colors.white.withValues(alpha: 0.10),
                       width: 1.1,
                     ),
                   ),
@@ -215,8 +215,8 @@ class LiquidGlassDialog extends StatelessWidget {
           radius: 28,
           blur: 24,
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-          surfaceColor: const Color(0xFF141C2E),
-          borderColor: Colors.white.withValues(alpha: 0.22),
+          surfaceColor: const Color(0xFF090D1C),
+          borderColor: Colors.white.withValues(alpha: 0.10),
           borderWidth: 1.2,
           child: Material(
             color: Colors.transparent,

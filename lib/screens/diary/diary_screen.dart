@@ -164,12 +164,12 @@ class DiaryScreen extends StatelessWidget {
           child: LiquidGlass(
             radius: 24,
             blur: 20,
-            surfaceColor: AppTheme.glassSurface,
+            tint: avgSE > 0 ? seColor : null,
             padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ЭФФЕКТИВНОСТЬ (7 ДН)', style: AppTheme.sectionLabel),
+                const Text('Эффективность (7 дн)', style: AppTheme.sectionLabel),
                 const SizedBox(height: 10),
                 Text(
                   avgSE > 0 ? '${avgSE.toStringAsFixed(1)}%' : '—',
@@ -196,12 +196,12 @@ class DiaryScreen extends StatelessWidget {
           child: LiquidGlass(
             radius: 24,
             blur: 20,
-            surfaceColor: AppTheme.glassSurface,
+            tint: avgSE > 0 ? seColor : null,
             padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ЧИСТЫЙ СОН (TST)', style: AppTheme.sectionLabel),
+                const Text('Чистый сон (TST)', style: AppTheme.sectionLabel),
                 const SizedBox(height: 10),
                 Text(
                   avgTST > 0
@@ -428,7 +428,7 @@ class DiaryScreen extends StatelessWidget {
         child: LiquidGlass(
           radius: 20,
           blur: 16,
-          surfaceColor: AppTheme.glassSurface,
+          tint: seColor,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
