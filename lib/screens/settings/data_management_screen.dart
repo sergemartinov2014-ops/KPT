@@ -53,7 +53,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('ВЫГРУЗКА ДЛЯ ВРАЧА-СОМНОЛОГА', style: AppTheme.sectionLabel),
+                        const Text('Отчёт для сомнолога', style: AppTheme.sectionLabel),
                         Row(
                           children: [
                             _buildPeriodChip(14, '14 дн'),
@@ -129,7 +129,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('КЛИНИЧЕСКИЙ ПРЕДОХРАНИТЕЛЬ', style: AppTheme.sectionLabel),
+                            Text('Клинический предохранитель', style: AppTheme.sectionLabel),
                             SizedBox(height: 4),
                             Text(
                               'Щадящий режим (Safe-SRT)',
@@ -169,7 +169,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('ЗАПИСЕЙ НОЧЕЙ', style: AppTheme.sectionLabel),
+                          const Text('Записи ночей', style: AppTheme.sectionLabel),
                           const SizedBox(height: 8),
                           Text(
                             '${entries.length}',
@@ -191,7 +191,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('ТЕСТОВ ISI', style: AppTheme.sectionLabel),
+                          const Text('Тесты ISI', style: AppTheme.sectionLabel),
                           const SizedBox(height: 8),
                           Text(
                             '${isiHistory.length}',

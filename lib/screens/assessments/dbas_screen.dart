@@ -97,8 +97,8 @@ class _DbasScreenState extends State<DbasScreen> {
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'КАТАСТРОФИЧЕСКАЯ МЫСЛЬ',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.1, color: AppTheme.warning),
+                  'Катастрофическая мысль',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, letterSpacing: -0.1, color: AppTheme.warning),
                 ),
               ],
             ),
@@ -129,8 +129,8 @@ class _DbasScreenState extends State<DbasScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'ДОКАЗАТЕЛЬНЫЙ ФАКТ СОМНОЛОГИИ',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0, color: AppTheme.success),
+                    'Факт доказательной сомнологии',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, letterSpacing: -0.1, color: AppTheme.success),
                   ),
                   const SizedBox(height: 6),
                   Text(

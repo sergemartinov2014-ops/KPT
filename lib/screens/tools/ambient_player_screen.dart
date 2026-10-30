@@ -94,7 +94,7 @@ class AmbientPlayerScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('ТАЙМЕР СНА', style: AppTheme.sectionLabel),
+                          const Text('Таймер сна', style: AppTheme.sectionLabel),
                           Row(
                             children: [
                               _buildTimerChip(audio, 0, 'Выкл', remainingSecs == 0),
@@ -116,7 +116,7 @@ class AmbientPlayerScreen extends StatelessWidget {
 
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text('БИБЛИОТЕКА CBT-I COACH', style: AppTheme.sectionLabel),
+              child: Text('Библиотека CBT-i Coach', style: AppTheme.sectionLabel),
             ),
             const SizedBox(height: 10),
 

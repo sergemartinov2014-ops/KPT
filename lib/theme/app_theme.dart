@@ -37,8 +37,8 @@ class AppTheme {
 
   // Typography Tokens (WCAG 2.2 AA Contrast Guard)
   static const Color textPrimary = Color(0xFFF1F5F9); // Warm Apple Alabaster (Contrast > 17:1)
-  static const Color textSecondary = Color(0xFF94A3B8); // Calm Slate (Contrast > 6:1)
-  static const Color textMuted = Color(0xFF64748B); // Muted Graphite (Contrast > 4.5:1)
+  static const Color textSecondary = Color(0xFF94A3B8); // Calm Slate (Contrast > 7.5:1)
+  static const Color textMuted = Color(0xFF7E8B9B); // High-Legibility Silver (Contrast > 5.5:1, WCAG AA Compliant)
 
   /// Стиль для цифр, таймеров и индексов (San Francisco Tabular Figures)
   static TextStyle monoFigures({
@@ -51,17 +51,18 @@ class AppTheme {
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
-      letterSpacing: letterSpacing,
+      letterSpacing: fontSize >= 28 ? -0.8 : (fontSize >= 20 ? -0.4 : letterSpacing),
+      height: 1.15,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
   }
 
-  /// Микро-заголовок секции по гайдлайнам Apple HIG
+  /// Заголовок секции по гайдлайнам Apple HIG (Sentence Case)
   static const TextStyle sectionLabel = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 1.2,
-    color: textMuted,
+    fontSize: 12.5,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.15,
+    color: textSecondary,
   );
 
   /// Декорация карточки в стиле Liquid Glass
@@ -136,6 +137,18 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: 'Inter',
+      fontFamilyFallback: const [
+        '-apple-system',
+        'BlinkMacSystemFont',
+        'SF Pro Display',
+        'SF Pro Text',
+        'SF Pro',
+        'Inter',
+        'Segoe UI',
+        'Roboto',
+        'sans-serif',
+      ],
       scaffoldBackgroundColor: background,
       splashFactory: InkSparkle.splashFactory,
       colorScheme: const ColorScheme.dark(
@@ -251,42 +264,52 @@ class AppTheme {
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           color: textPrimary,
-          fontSize: 30,
+          fontSize: 32,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.8,
+          height: 1.2,
         ),
         headlineMedium: TextStyle(
           color: textPrimary,
           fontSize: 22,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.4,
+          height: 1.25,
         ),
         titleLarge: TextStyle(
           color: textPrimary,
-          fontSize: 17,
+          fontSize: 18,
           fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
+          letterSpacing: -0.25,
+          height: 1.3,
         ),
         titleMedium: TextStyle(
           color: textPrimary,
           fontSize: 15,
-          fontWeight: FontWeight.w500,
-          letterSpacing: -0.1,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.15,
+          height: 1.35,
         ),
         bodyLarge: TextStyle(
           color: textPrimary,
           fontSize: 15,
+          fontWeight: FontWeight.w400,
           height: 1.5,
+          letterSpacing: -0.1,
         ),
         bodyMedium: TextStyle(
           color: textSecondary,
-          fontSize: 13,
+          fontSize: 13.5,
+          fontWeight: FontWeight.w400,
           height: 1.45,
+          letterSpacing: -0.05,
         ),
         bodySmall: TextStyle(
           color: textMuted,
           fontSize: 12,
+          fontWeight: FontWeight.w400,
           height: 1.4,
+          letterSpacing: 0,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

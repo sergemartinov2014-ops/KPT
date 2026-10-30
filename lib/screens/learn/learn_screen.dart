@@ -48,7 +48,7 @@ class _LearnScreenState extends State<LearnScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('КЛИНИЧЕСКИЙ СТАНДАРТ', style: AppTheme.sectionLabel),
+                  Text('Клинический стандарт', style: AppTheme.sectionLabel),
                   SizedBox(height: 8),
                   Text(
                     'Доказательная терапия первой линии',
@@ -73,14 +73,14 @@ class _LearnScreenState extends State<LearnScreen> {
             ),
             const SizedBox(height: 24),
 
-            const Text('ПРАВИЛА СТИМУЛЬНОГО КОНТРОЛЯ (БУТЗИН)', style: AppTheme.sectionLabel),
+            const Text('Правила стимульного контроля', style: AppTheme.sectionLabel),
             const SizedBox(height: 12),
 
             if (_rulesData != null)
               ...(_rulesData!['rules'] as List).map((rule) => _buildRuleCard(rule)),
 
             const SizedBox(height: 22),
-            const Text('НЕЙРОБИОЛОГИЯ СНА', style: AppTheme.sectionLabel),
+            const Text('Нейробиология сна', style: AppTheme.sectionLabel),
             const SizedBox(height: 12),
 
             _buildArticleCard(

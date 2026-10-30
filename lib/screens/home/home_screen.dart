@@ -179,12 +179,12 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'УМНЫЙ БУДИЛЬНИК',
+                        'Умный будильник',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                          color: AppTheme.systemIndigo,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       Text(
@@ -342,12 +342,12 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'АУДИОЗАПИСЬ СНА',
+                        'Запись звуков сна',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                          color: AppTheme.systemTeal,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       Text(
@@ -443,7 +443,7 @@ class HomeScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('ПРЕДПИСАННОЕ ОКНО СНА', style: AppTheme.sectionLabel),
+              const Text('Окно сна CBT-i', style: AppTheme.sectionLabel),
               InkWell(
                 onTap: () => _showEditWindowDialog(context, sleep),
                 borderRadius: BorderRadius.circular(8),
@@ -745,7 +745,7 @@ class HomeScreen extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('АКУСТИЧЕСКИЙ ФОН', style: AppTheme.sectionLabel),
+            const Text('Звуковые ландшафты', style: AppTheme.sectionLabel),
             GestureDetector(
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AmbientPlayerScreen()));

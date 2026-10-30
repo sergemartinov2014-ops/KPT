@@ -94,7 +94,7 @@ class _DisclaimerScreenState extends State<DisclaimerScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('НАУЧНАЯ БАЗА И СТАТУС', style: AppTheme.sectionLabel),
+                            Text('Научная база и статус', style: AppTheme.sectionLabel),
                             SizedBox(height: 8),
                             Text(
                               'Приложение реализует поведенческий протокол терапии инсомнии (CBT-i Coach, Stanford / VA) и функции трекинга сна из Moonap. Все алгоритмы работают полностью автономно на вашем устройстве.\n\n'
@@ -122,11 +122,11 @@ class _DisclaimerScreenState extends State<DisclaimerScreen> {
                                 Icon(Icons.shield_moon_outlined, color: AppTheme.warning, size: 16),
                                 SizedBox(width: 6),
                                 Text(
-                                  'ОГРАНИЧЕНИЯ МЕТОДА СЖАТИЯ СНА (SRT)',
+                                  'Ограничения метода сжатия сна (SRT)',
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.1,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.15,
                                     color: AppTheme.warning,
                                   ),
                                 ),
@@ -146,7 +146,7 @@ class _DisclaimerScreenState extends State<DisclaimerScreen> {
                       ),
                       const SizedBox(height: 18),
 
-                      const Text('ПОДТВЕРЖДЕНИЕ ПАРАМЕТРОВ', style: AppTheme.sectionLabel),
+                      const Text('Подтверждение параметров', style: AppTheme.sectionLabel),
                       const SizedBox(height: 10),
 
                       _buildConsentTile(

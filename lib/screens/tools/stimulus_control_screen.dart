@@ -139,7 +139,7 @@ class _StimulusControlScreenState extends State<StimulusControlScreen> with Sing
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ЗАЩИТА ОТ ЧАСОВОЙ ТРЕВОГИ', style: AppTheme.sectionLabel),
+                    Text('Защита от часовой тревоги', style: AppTheme.sectionLabel),
                     SizedBox(height: 8),
                     Text(
                       'Цифровой секундомер скрыт намеренно. Наблюдение за минутами ночью активирует кору головного мозга и усиливает бессонницу. По окончании 20 минут прозвучит мягкий сигнал тибетской чаши.',
@@ -151,7 +151,7 @@ class _StimulusControlScreenState extends State<StimulusControlScreen> with Sing
             ),
             const SizedBox(height: 24),
 
-            const Text('СПОКОЙНЫЕ ЗАНЯТИЯ В ДРУГОЙ КОМНАТЕ', style: AppTheme.sectionLabel),
+            const Text('Спокойные занятия вне спальни', style: AppTheme.sectionLabel),
             const SizedBox(height: 12),
 
             FadeSlideEntrance(

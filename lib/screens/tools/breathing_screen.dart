@@ -71,19 +71,19 @@ class _BreathingScreenState extends State<BreathingScreen> {
 
     switch (_phase) {
       case BreathPhase.inhale:
-        phaseTitle = 'ВДОХ ЧЕРЕЗ НОС';
+        phaseTitle = 'Вдох через нос';
         phaseHint = 'Спокойно наполняйте диафрагму';
         phaseColor = AppTheme.accent;
         scale = 1.0 + ((4 - _secondsLeft) / 4) * 0.28;
         break;
       case BreathPhase.hold:
-        phaseTitle = 'ПАУЗА';
+        phaseTitle = 'Пауза';
         phaseHint = 'Мягкая задержка без напряжения';
         phaseColor = AppTheme.success;
         scale = 1.28;
         break;
       case BreathPhase.exhale:
-        phaseTitle = 'МЕДЛЕННЫЙ ВЫДОХ';
+        phaseTitle = 'Медленный выдох';
         phaseHint = 'Расслабьте плечи и челюсть';
         phaseColor = AppTheme.primaryLight;
         scale = 1.0 + (_secondsLeft / 8) * 0.28;

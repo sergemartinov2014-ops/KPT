@@ -76,7 +76,7 @@ class DiaryScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _buildChartCard(entries),
                   const SizedBox(height: 24),
-                  const Text('ЖУРНАЛ НОЧЕЙ', style: AppTheme.sectionLabel),
+                  const Text('Журнал ночей', style: AppTheme.sectionLabel),
                   const SizedBox(height: 12),
                   ...entries.map((e) => _buildEntryTile(context, e, sleep)),
                 ],
@@ -265,7 +265,7 @@ class DiaryScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('ДИНАМИКА SLEEP EFFICIENCY', style: AppTheme.sectionLabel),
+              const Text('Динамика эффективности сна', style: AppTheme.sectionLabel),
               Row(
                 children: [
                   Container(

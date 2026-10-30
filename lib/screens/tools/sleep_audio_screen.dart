@@ -52,7 +52,7 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('ЗАПИСИ СОБЫТИЙ СНА', style: AppTheme.sectionLabel),
+                const Text('Записи событий сна', style: AppTheme.sectionLabel),
                 if (audio.clips.isNotEmpty)
                   Text(
                     '${audio.clips.length} ${audio.clips.length == 1 ? 'клип' : 'клипов'}',
@@ -131,16 +131,16 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                   children: [
                     Text(
                       isRec
-                          ? 'ИДЕТ ЗАПИСЬ ЗВУКА'
+                          ? 'Идет запись звука'
                           : (isWaiting
-                              ? 'ОЖИДАНИЕ ЗАСЫПАНИЯ'
+                              ? 'Ожидание засыпания'
                               : (isRunning
-                                  ? 'МОНИТОРИНГ АКТИВЕН'
-                                  : 'МОНИТОРИНГ ВЫКЛЮЧЕН')),
+                                  ? 'Мониторинг активен'
+                                  : 'Мониторинг выключен')),
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.15,
                         color: isRec
                             ? AppTheme.error
                             : (isRunning

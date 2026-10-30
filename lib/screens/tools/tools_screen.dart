@@ -25,7 +25,7 @@ class ToolsScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
           children: [
-            const Text('НОЧНЫЕ ПРОТОКОЛЫ', style: AppTheme.sectionLabel),
+            const Text('Ночные протоколы', style: AppTheme.sectionLabel),
             const SizedBox(height: 12),
             FadeSlideEntrance(
               delayMs: 0,
@@ -35,7 +35,7 @@ class ToolsScreen extends StatelessWidget {
                 title: 'Умный будильник',
                 subtitle:
                     'Пробуждение в фазе лёгкого сна без утренней разбитости с плавным нарастанием звука',
-                tag: 'SMART ALARM',
+                tag: 'Будильник',
                 tagColor: AppTheme.systemIndigo,
                 onTap: () => Navigator.push(
                   context,
@@ -51,7 +51,7 @@ class ToolsScreen extends StatelessWidget {
                 title: 'Правило 20 минут',
                 subtitle:
                     'Стимульный контроль при невозможности уснуть: мягкий фоновый таймер без взгляда на часы',
-                tag: 'SCT',
+                tag: 'Стимулы',
                 tagColor: AppTheme.accent,
                 onTap: () => Navigator.push(
                   context,
@@ -67,7 +67,7 @@ class ToolsScreen extends StatelessWidget {
                 title: 'Дыхательный ритм 4–7–8',
                 subtitle:
                     'Парасимпатическая разгрузка и снижение частоты сердечных сокращений перед сном',
-                tag: 'ВЕГЕТАТИКА',
+                tag: 'Дыхание',
                 tagColor: AppTheme.systemTeal,
                 onTap: () => Navigator.push(
                   context,
@@ -83,7 +83,7 @@ class ToolsScreen extends StatelessWidget {
                 title: 'Акустическое маскирование',
                 subtitle:
                     '8 бесшовных звуковых сред из протокола CBT-i Coach с таймером плавного затухания',
-                tag: '8 СЦЕН',
+                tag: '8 сцен',
                 tagColor: AppTheme.primaryLight,
                 onTap: () => Navigator.push(
                   context,
@@ -99,7 +99,7 @@ class ToolsScreen extends StatelessWidget {
                 title: 'Аудиозапись сна',
                 subtitle:
                     'Умная фиксация храпа, разговоров во сне и шорохов с автоотсечкой тишины',
-                tag: 'SMART REC',
+                tag: 'Запись сна',
                 tagColor: AppTheme.systemPurple,
                 onTap: () => Navigator.push(
                   context,
@@ -109,7 +109,7 @@ class ToolsScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 22),
-            const Text('КЛИНИЧЕСКИЕ ШКАЛЫ И КОГНИЦИИ', style: AppTheme.sectionLabel),
+            const Text('Клинические шкалы и диагностика', style: AppTheme.sectionLabel),
             const SizedBox(height: 12),
             FadeSlideEntrance(
               delayMs: 200,
@@ -119,7 +119,7 @@ class ToolsScreen extends StatelessWidget {
                 title: 'Индекс тяжести инсомнии (ISI)',
                 subtitle:
                     'Золотой стандарт клинической оценки симптомов бессонницы (7 вопросов, шкала 0–28)',
-                tag: 'ШКАЛА ISI',
+                tag: 'Шкала ISI',
                 tagColor: AppTheme.systemAmber,
                 onTap: () => Navigator.push(
                   context,
@@ -135,7 +135,7 @@ class ToolsScreen extends StatelessWidget {
                 title: 'Реструктуризация убеждений (DBAS)',
                 subtitle:
                     'Разбор катастрофических мыслей о сне и снижение когнитивной гиперактивации',
-                tag: 'КПТ-И',
+                tag: 'Когниции',
                 tagColor: AppTheme.accent,
                 onTap: () => Navigator.push(
                   context,
@@ -215,9 +215,9 @@ class ToolsScreen extends StatelessWidget {
                         child: Text(
                           tag,
                           style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
                             color: tagColor,
                           ),
                         ),

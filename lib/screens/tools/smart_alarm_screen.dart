@@ -72,21 +72,21 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
             const SizedBox(height: 24),
 
             // 4. Выбор мелодии пробуждения
-            const Text('ЗВУК И МЕЛОДИЯ', style: AppTheme.sectionLabel),
+            const Text('Звук и мелодия', style: AppTheme.sectionLabel),
             const SizedBox(height: 10),
             _buildSoundPickerCard(context, alarm),
 
             const SizedBox(height: 24),
 
             // 5. Плавное нарастание и вибрация
-            const Text('МЯГКОЕ ПРОБУЖДЕНИЕ', style: AppTheme.sectionLabel),
+            const Text('Мягкое пробуждение', style: AppTheme.sectionLabel),
             const SizedBox(height: 10),
             _buildGentleWakeCard(context, alarm),
 
             const SizedBox(height: 24),
 
             // 6. Дни повтора
-            const Text('ДНИ ПОВТОРА', style: AppTheme.sectionLabel),
+            const Text('Дни повтора', style: AppTheme.sectionLabel),
             const SizedBox(height: 10),
             _buildRepeatDaysCard(context, alarm),
 

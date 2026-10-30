@@ -257,7 +257,7 @@ class _IsiScreenState extends State<IsiScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('ИНДЕКС ISI', style: AppTheme.sectionLabel),
+                  const Text('Индекс ISI', style: AppTheme.sectionLabel),
                   const SizedBox(height: 4),
                   Text(
                     '$score',
@@ -281,7 +281,7 @@ class _IsiScreenState extends State<IsiScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('КЛИНИЧЕСКАЯ ИНТЕРПРЕТАЦИЯ', style: AppTheme.sectionLabel),
+                const Text('Клиническая интерпретация', style: AppTheme.sectionLabel),
                 const SizedBox(height: 8),
                 Text(
                   interp['title'],
