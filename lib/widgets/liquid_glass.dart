@@ -2,6 +2,9 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'liquid_glass_modal.dart';
+export 'liquid_glass_modal.dart';
+
 
 /// Базовый мета-материал Liquid Glass (Apple HIG iOS 26 / Glassmorphism)
 /// Обеспечивает физическую оптическую глубину, световую фаску, верхний блик и высокую производительность на Web и Mobile.
@@ -145,16 +148,9 @@ class LiquidGlass extends StatelessWidget {
     );
 
     if (onTap != null) {
-      return Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(radius),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(radius),
-          onTap: onTap,
-          splashColor: Colors.white.withValues(alpha: 0.08),
-          highlightColor: Colors.white.withValues(alpha: 0.04),
-          child: glassCard,
-        ),
+      return LiquidGlassInteractive(
+        onTap: onTap,
+        child: glassCard,
       );
     }
 

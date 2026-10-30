@@ -732,152 +732,141 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
     BuildContext context,
     SmartAlarmProvider alarm,
   ) {
-    showModalBottomSheet(
+    showLiquidGlassBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
       builder: (ctx) {
         return Consumer<SmartAlarmProvider>(
           builder: (context, alarmProv, _) {
             final previewingId = alarmProv.currentlyPreviewingSoundId;
 
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceBorder,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Мелодии пробуждения',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Мелодии пробуждения',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Гармоничные частоты, облегчающие переход в бодрствование.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppTheme.textSecondary,
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Гармоничные частоты, облегчающие переход в бодрствование.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: AlarmSoundOption.available.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final item = AlarmSoundOption.available[index];
-                        final isSelected = alarmProv.config.soundId == item.id;
-                        final isPlayingThis = previewingId == item.id;
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: AlarmSoundOption.available.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = AlarmSoundOption.available[index];
+                      final isSelected = alarmProv.config.soundId == item.id;
+                      final isPlayingThis = previewingId == item.id;
 
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.accent.withValues(alpha: 0.12)
-                                : AppTheme.surfaceElevated,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.accent
-                                  : AppTheme.surfaceBorder,
-                            ),
+                      return LiquidGlassInteractive(
+                        onTap: () {
+                          alarmProv.setSound(item.id);
+                        },
+                        child: LiquidGlass(
+                          radius: 18,
+                          blur: 10,
+                          surfaceColor: isSelected
+                              ? AppTheme.accent.withValues(alpha: 0.15)
+                              : AppTheme.glassSurfaceElevated,
+                          borderColor: isSelected
+                              ? AppTheme.accent
+                              : Colors.white.withValues(alpha: 0.14),
+                          borderWidth: isSelected ? 1.4 : 1.0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
                           ),
-                          child: ListTile(
-                            onTap: () {
-                              alarmProv.setSound(item.id);
-                            },
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            leading: IconButton(
-                              icon: Icon(
-                                isPlayingThis
-                                    ? Icons.pause_circle_filled_rounded
-                                    : Icons.play_circle_fill_rounded,
-                                color: isSelected
-                                    ? AppTheme.accent
-                                    : AppTheme.textSecondary,
-                                size: 28,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  isPlayingThis
+                                      ? Icons.pause_circle_filled_rounded
+                                      : Icons.play_circle_fill_rounded,
+                                  color: isSelected
+                                      ? AppTheme.accent
+                                      : AppTheme.textSecondary,
+                                  size: 30,
+                                ),
+                                onPressed: () {
+                                  alarmProv.previewSound(item.id);
+                                },
                               ),
-                              onPressed: () {
-                                alarmProv.previewSound(item.id);
-                              },
-                            ),
-                            title: Text(
-                              item.title,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: AppTheme.textPrimary,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.title,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      item.subtitle,
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            subtitle: Text(
-                              item.subtitle,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            trailing: isSelected
-                                ? const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: AppTheme.accent,
-                                    size: 20,
-                                  )
-                                : null,
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppTheme.accent,
+                                  size: 22,
+                                ),
+                            ],
                           ),
-                        );
-                      },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      alarmProv.stopPreview();
+                      Navigator.of(ctx).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: AppTheme.background,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Выбрать',
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        alarmProv.stopPreview();
-                        Navigator.of(ctx).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accent,
-                        foregroundColor: AppTheme.background,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text(
-                        'Готово',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         );

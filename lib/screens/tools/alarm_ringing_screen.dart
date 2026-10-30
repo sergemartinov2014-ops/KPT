@@ -339,93 +339,92 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
   }
 
   void _showMorningDiaryPrompt(BuildContext context) {
-    showModalBottomSheet(
+    showLiquidGlassBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceBorder,
-                borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.accent.withValues(alpha: 0.35),
               ),
             ),
-            const SizedBox(height: 20),
-            const Icon(
+            child: const Icon(
               Icons.bedtime_outlined,
-              size: 40,
+              size: 28,
               color: AppTheme.accent,
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Доброе утро!',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Доброе утро!',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.3,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Зафиксируйте время сна и оценку ночи в дневнике CBT-i, пока воспоминания свежи.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-                height: 1.4,
-              ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Зафиксируйте время сна и оценку ночи в дневнике CBT-i, пока воспоминания свежи.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+              height: 1.45,
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AddDiaryEntryScreen(),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accent,
-                  foregroundColor: AppTheme.background,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AddDiaryEntryScreen(),
                   ),
-                ),
-                child: const Text(
-                  'Заполнить дневник сна',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: AppTheme.background,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
               child: const Text(
-                'Заполнить позже',
+                'Заполнить дневник сна',
                 style: TextStyle(
-                  color: AppTheme.textMuted,
-                  fontSize: 14,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(double.infinity, 44),
+            ),
+            child: const Text(
+              'Заполнить позже',
+              style: TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

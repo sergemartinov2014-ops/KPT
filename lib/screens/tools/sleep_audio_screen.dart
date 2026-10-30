@@ -522,95 +522,88 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
   void _showSettingsDialog(BuildContext context, SleepAudioProvider audio) {
     double tempThreshold = audio.startThresholdDb;
 
-    showModalBottomSheet(
+    showLiquidGlassBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Чувствительность порога шума',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Порог чувствительности микрофона',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 20, color: AppTheme.textSecondary),
-                        onPressed: () => Navigator.pop(ctx),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20, color: AppTheme.textSecondary),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Чем выше значение (ближе к 0 dB), тем громче должен быть храп или шум, чтобы началась запись.',
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Порог активации:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    Text(
+                      '${tempThreshold.toStringAsFixed(0)} dB',
+                      style: const TextStyle(
+                        color: AppTheme.accent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Чем выше значение (ближе к 0 dB), тем громче должен быть храп или шум, чтобы началась запись.',
-                    style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Порог срабатывания:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                      Text(
-                        '${tempThreshold.toStringAsFixed(0)} dB',
-                        style: const TextStyle(
-                          color: AppTheme.accent,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Slider(
-                    value: tempThreshold,
-                    min: -50.0,
-                    max: -15.0,
-                    divisions: 35,
-                    activeColor: AppTheme.accent,
-                    inactiveColor: AppTheme.surfaceElevated,
-                    onChanged: (val) {
-                      setModalState(() => tempThreshold = val);
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: tempThreshold,
+                  min: -50.0,
+                  max: -15.0,
+                  divisions: 35,
+                  activeColor: AppTheme.accent,
+                  inactiveColor: AppTheme.surfaceElevated,
+                  onChanged: (val) {
+                    setModalState(() => tempThreshold = val);
+                  },
+                ),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Очень чуткий (-50 dB)', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    Text('Только громкий (-15 dB)', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: const Color(0xFF06080F),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('Сохранить', style: TextStyle(fontWeight: FontWeight.w700)),
+                    onPressed: () {
+                      audio.updateSettings(threshold: tempThreshold);
+                      Navigator.pop(ctx);
                     },
                   ),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Очень чуткий (-50 dB)', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
-                      Text('Только громкий (-15 dB)', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accent,
-                        foregroundColor: const Color(0xFF06080F),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text('Сохранить', style: TextStyle(fontWeight: FontWeight.w700)),
-                      onPressed: () {
-                        audio.updateSettings(threshold: tempThreshold);
-                        Navigator.pop(ctx);
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         );
@@ -619,27 +612,38 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
   }
 
   void _confirmClearAll(BuildContext context, SleepAudioProvider audio) {
-    showDialog(
+    showLiquidGlassDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surface,
-        title: const Text('Удалить все записи?', style: TextStyle(color: AppTheme.textPrimary)),
+      builder: (ctx) => LiquidGlassDialog(
+        icon: Icons.delete_outline_rounded,
+        iconColor: AppTheme.error,
+        title: const Text('Удалить все записи?'),
         content: const Text(
-          'Все сохраненные аудиофрагменты сна будут удалены с устройства.',
-          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+          'Все сохраненные аудиофрагменты сна будут удалены с устройства без возможности восстановления.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(80, 44),
+            ),
             child: const Text('Отмена', style: TextStyle(color: AppTheme.textSecondary)),
           ),
+          const SizedBox(width: 8),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(100, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
             onPressed: () {
               audio.clearAllClips();
               Navigator.pop(ctx);
             },
-            child: const Text('Удалить'),
+            child: const Text('Удалить', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),

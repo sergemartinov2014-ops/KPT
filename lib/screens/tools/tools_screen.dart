@@ -27,99 +27,120 @@ class ToolsScreen extends StatelessWidget {
           children: [
             const Text('НОЧНЫЕ ПРОТОКОЛЫ', style: AppTheme.sectionLabel),
             const SizedBox(height: 12),
-            _buildToolCard(
-              context,
-              icon: Icons.alarm_rounded,
-              title: 'Умный будильник',
-              subtitle:
-                  'Пробуждение в фазе лёгкого сна без утренней разбитости с плавным нарастанием звука',
-              tag: 'SMART ALARM',
-              tagColor: AppTheme.systemIndigo,
-              onTap: () => Navigator.push(
+            FadeSlideEntrance(
+              delayMs: 0,
+              child: _buildToolCard(
                 context,
-                MaterialPageRoute(builder: (_) => const SmartAlarmScreen()),
+                icon: Icons.alarm_rounded,
+                title: 'Умный будильник',
+                subtitle:
+                    'Пробуждение в фазе лёгкого сна без утренней разбитости с плавным нарастанием звука',
+                tag: 'SMART ALARM',
+                tagColor: AppTheme.systemIndigo,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SmartAlarmScreen()),
+                ),
               ),
             ),
-            _buildToolCard(
-              context,
-              icon: Icons.timelapse_rounded,
-              title: 'Правило 20 минут',
-              subtitle:
-                  'Стимульный контроль при невозможности уснуть: мягкий фоновый таймер без взгляда на часы',
-              tag: 'SCT',
-              tagColor: AppTheme.accent,
-              onTap: () => Navigator.push(
+            FadeSlideEntrance(
+              delayMs: 40,
+              child: _buildToolCard(
                 context,
-                MaterialPageRoute(builder: (_) => const StimulusControlScreen()),
+                icon: Icons.timelapse_rounded,
+                title: 'Правило 20 минут',
+                subtitle:
+                    'Стимульный контроль при невозможности уснуть: мягкий фоновый таймер без взгляда на часы',
+                tag: 'SCT',
+                tagColor: AppTheme.accent,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StimulusControlScreen()),
+                ),
               ),
             ),
-            _buildToolCard(
-              context,
-              icon: Icons.waves_rounded,
-              title: 'Дыхательный ритм 4–7–8',
-              subtitle:
-                  'Парасимпатическая разгрузка и снижение частоты сердечных сокращений перед сном',
-              tag: 'ВЕГЕТАТИКА',
-              tagColor: AppTheme.systemTeal,
-              onTap: () => Navigator.push(
+            FadeSlideEntrance(
+              delayMs: 80,
+              child: _buildToolCard(
                 context,
-                MaterialPageRoute(builder: (_) => const BreathingScreen()),
+                icon: Icons.waves_rounded,
+                title: 'Дыхательный ритм 4–7–8',
+                subtitle:
+                    'Парасимпатическая разгрузка и снижение частоты сердечных сокращений перед сном',
+                tag: 'ВЕГЕТАТИКА',
+                tagColor: AppTheme.systemTeal,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BreathingScreen()),
+                ),
               ),
             ),
-            _buildToolCard(
-              context,
-              icon: Icons.graphic_eq_rounded,
-              title: 'Акустическое маскирование',
-              subtitle:
-                  '8 бесшовных звуковых сред из протокола CBT-i Coach с таймером плавного затухания',
-              tag: '8 СЦЕН',
-              tagColor: AppTheme.primaryLight,
-              onTap: () => Navigator.push(
+            FadeSlideEntrance(
+              delayMs: 120,
+              child: _buildToolCard(
                 context,
-                MaterialPageRoute(builder: (_) => const AmbientPlayerScreen()),
+                icon: Icons.graphic_eq_rounded,
+                title: 'Акустическое маскирование',
+                subtitle:
+                    '8 бесшовных звуковых сред из протокола CBT-i Coach с таймером плавного затухания',
+                tag: '8 СЦЕН',
+                tagColor: AppTheme.primaryLight,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AmbientPlayerScreen()),
+                ),
               ),
             ),
-            _buildToolCard(
-              context,
-              icon: Icons.mic_none_rounded,
-              title: 'Аудиозапись сна',
-              subtitle:
-                  'Умная фиксация храпа, разговоров во сне и шорохов с автоотсечкой тишины',
-              tag: 'SMART REC',
-              tagColor: AppTheme.systemPurple,
-              onTap: () => Navigator.push(
+            FadeSlideEntrance(
+              delayMs: 160,
+              child: _buildToolCard(
                 context,
-                MaterialPageRoute(builder: (_) => const SleepAudioScreen()),
+                icon: Icons.mic_none_rounded,
+                title: 'Аудиозапись сна',
+                subtitle:
+                    'Умная фиксация храпа, разговоров во сне и шорохов с автоотсечкой тишины',
+                tag: 'SMART REC',
+                tagColor: AppTheme.systemPurple,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SleepAudioScreen()),
+                ),
               ),
             ),
 
             const SizedBox(height: 22),
             const Text('КЛИНИЧЕСКИЕ ШКАЛЫ И КОГНИЦИИ', style: AppTheme.sectionLabel),
             const SizedBox(height: 12),
-            _buildToolCard(
-              context,
-              icon: Icons.analytics_outlined,
-              title: 'Индекс тяжести инсомнии (ISI)',
-              subtitle:
-                  'Золотой стандарт клинической оценки симптомов бессонницы (7 вопросов, шкала 0–28)',
-              tag: 'ШКАЛА ISI',
-              tagColor: AppTheme.systemAmber,
-              onTap: () => Navigator.push(
+            FadeSlideEntrance(
+              delayMs: 200,
+              child: _buildToolCard(
                 context,
-                MaterialPageRoute(builder: (_) => const IsiScreen()),
+                icon: Icons.analytics_outlined,
+                title: 'Индекс тяжести инсомнии (ISI)',
+                subtitle:
+                    'Золотой стандарт клинической оценки симптомов бессонницы (7 вопросов, шкала 0–28)',
+                tag: 'ШКАЛА ISI',
+                tagColor: AppTheme.systemAmber,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const IsiScreen()),
+                ),
               ),
             ),
-            _buildToolCard(
-              context,
-              icon: Icons.psychology_outlined,
-              title: 'Реструктуризация убеждений (DBAS)',
-              subtitle:
-                  'Разбор катастрофических мыслей о сне и снижение когнитивной гиперактивации',
-              tag: 'КПТ-И',
-              tagColor: AppTheme.accent,
-              onTap: () => Navigator.push(
+            FadeSlideEntrance(
+              delayMs: 240,
+              child: _buildToolCard(
                 context,
-                MaterialPageRoute(builder: (_) => const DbasScreen()),
+                icon: Icons.psychology_outlined,
+                title: 'Реструктуризация убеждений (DBAS)',
+                subtitle:
+                    'Разбор катастрофических мыслей о сне и снижение когнитивной гиперактивации',
+                tag: 'КПТ-И',
+                tagColor: AppTheme.accent,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DbasScreen()),
+                ),
               ),
             ),
           ],

@@ -496,87 +496,66 @@ class HomeScreen extends StatelessWidget {
     int wakeHour = sleep.currentWindow.wakeHour;
     int wakeMinute = sleep.currentWindow.wakeMinute;
 
-    showModalBottomSheet(
+    showLiquidGlassBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: AppTheme.surfaceBorder),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceBorder,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text('Калибровка окна сна', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Время утреннего подъема служит главным якорем циркадного ритма.',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildModalTimeRow(
-                      ctx: context,
-                      label: 'Предписанный отбой',
-                      hour: bedHour,
-                      minute: bedMinute,
-                      onPicked: (t) => setModalState(() {
-                        bedHour = t.hour;
-                        bedMinute = t.minute;
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildModalTimeRow(
-                      ctx: context,
-                      label: 'Фиксированный подъем',
-                      hour: wakeHour,
-                      minute: wakeMinute,
-                      onPicked: (t) => setModalState(() {
-                        wakeHour = t.hour;
-                        wakeMinute = t.minute;
-                      }),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          final success = await sleep.updateCustomWindow(bedHour, bedMinute, wakeHour, wakeMinute);
-                          if (ctx.mounted) {
-                            if (!success) {
-                              final minHours = sleep.isSafeModeSRT ? '6.5' : '5.0';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Минимальное безопасное окно сна — $minHours ч.'),
-                                ),
-                              );
-                            } else {
-                              Navigator.pop(ctx);
-                            }
-                          }
-                        },
-                        child: const Text('Сохранить расписание'),
-                      ),
-                    ),
-                  ],
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Калибровка окна сна', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                const SizedBox(height: 6),
+                const Text(
+                  'Время утреннего подъема служит главным якорем циркадного ритма.',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
-              ),
+                const SizedBox(height: 20),
+                _buildModalTimeRow(
+                  ctx: context,
+                  label: 'Предписанный отбой',
+                  hour: bedHour,
+                  minute: bedMinute,
+                  onPicked: (t) => setModalState(() {
+                    bedHour = t.hour;
+                    bedMinute = t.minute;
+                  }),
+                ),
+                const SizedBox(height: 10),
+                _buildModalTimeRow(
+                  ctx: context,
+                  label: 'Фиксированный подъем',
+                  hour: wakeHour,
+                  minute: wakeMinute,
+                  onPicked: (t) => setModalState(() {
+                    wakeHour = t.hour;
+                    wakeMinute = t.minute;
+                  }),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final success = await sleep.updateCustomWindow(bedHour, bedMinute, wakeHour, wakeMinute);
+                      if (ctx.mounted) {
+                        if (!success) {
+                          final minHours = sleep.isSafeModeSRT ? '6.5' : '5.0';
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Минимальное безопасное окно сна — $minHours ч.'),
+                            ),
+                          );
+                        } else {
+                          Navigator.pop(ctx);
+                        }
+                      }
+                    },
+                    child: const Text('Сохранить расписание'),
+                  ),
+                ),
+              ],
             );
           },
         );
@@ -591,8 +570,7 @@ class HomeScreen extends StatelessWidget {
     required int minute,
     required ValueChanged<TimeOfDay> onPicked,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
+    return LiquidGlassInteractive(
       onTap: () async {
         final t = await showTimePicker(
           context: ctx,
@@ -600,13 +578,15 @@ class HomeScreen extends StatelessWidget {
         );
         if (t != null) onPicked(t);
       },
-      child: Container(
+      child: LiquidGlass(
+        radius: 16,
+        blur: 10,
+        surfaceColor: AppTheme.glassSurfaceElevated,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: AppTheme.bentoBox(color: AppTheme.surfaceElevated, radius: 14),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+            Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
             Text(
               '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}',
               style: AppTheme.monoFigures(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.accent),
