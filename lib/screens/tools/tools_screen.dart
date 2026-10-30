@@ -4,6 +4,7 @@ import 'stimulus_control_screen.dart';
 import 'breathing_screen.dart';
 import 'ambient_player_screen.dart';
 import 'sleep_audio_screen.dart';
+import 'smart_alarm_screen.dart';
 import '../assessments/isi_screen.dart';
 import '../assessments/dbas_screen.dart';
 
@@ -22,6 +23,15 @@ class ToolsScreen extends StatelessWidget {
         children: [
           const Text('НОЧНЫЕ ПРОТОКОЛЫ', style: AppTheme.sectionLabel),
           const SizedBox(height: 12),
+          _buildToolCard(
+            context,
+            icon: Icons.alarm_rounded,
+            title: 'Умный будильник',
+            subtitle: 'Пробуждение в фазе лёгкого сна без утренней разбитости с плавным нарастанием звука',
+            tag: 'SMART ALARM',
+            tagColor: AppTheme.accent,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SmartAlarmScreen())),
+          ),
           _buildToolCard(
             context,
             icon: Icons.timelapse_rounded,

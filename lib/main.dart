@@ -7,6 +7,7 @@ import 'services/storage_service.dart';
 import 'providers/sleep_provider.dart';
 import 'providers/audio_provider.dart';
 import 'providers/sleep_audio_provider.dart';
+import 'providers/smart_alarm_provider.dart';
 import 'screens/navigation/main_navigation_screen.dart';
 import 'screens/onboarding/disclaimer_screen.dart';
 
@@ -16,12 +17,18 @@ void main() async {
   final storageService = StorageService(prefs);
   final bool hasAcceptedDisclaimer = prefs.getBool('has_accepted_disclaimer') ?? false;
 
+  final sleepAudioProvider = SleepAudioProvider();
+  final smartAlarmProvider = SmartAlarmProvider(
+    sleepRecorderService: sleepAudioProvider.service,
+  );
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SleepProvider(storageService)),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
-        ChangeNotifierProvider(create: (_) => SleepAudioProvider()),
+        ChangeNotifierProvider.value(value: sleepAudioProvider),
+        ChangeNotifierProvider.value(value: smartAlarmProvider),
       ],
       child: SomniaApp(initialRouteIsDisclaimer: !hasAcceptedDisclaimer),
     ),
