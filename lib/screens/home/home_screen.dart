@@ -32,20 +32,32 @@ class HomeScreen extends StatelessWidget {
         titleSpacing: 20,
         title: Row(
           children: [
-            Image.asset(
-              'assets/icon/app_icon.png',
-              width: 24,
-              height: 24,
-              errorBuilder: (_, __, ___) => Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: AppTheme.accent,
-                  shape: BoxShape.circle,
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  width: 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 11),
             const Text(
               'СОМНИЯ',
               style: TextStyle(

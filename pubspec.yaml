@@ -31,6 +31,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/icon/
     - assets/data/
     - assets/audio/ambient/
     - assets/audio/alarm/

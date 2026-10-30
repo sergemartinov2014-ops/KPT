@@ -44,10 +44,10 @@ class AuroraCanvas extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      (primaryGlow ?? const Color(0xFF4338CA))
-                          .withValues(alpha: 0.18),
+                      (primaryGlow ?? const Color(0xFF4F46E5))
+                          .withValues(alpha: 0.22),
                       (primaryGlow ?? const Color(0xFF312E81))
-                          .withValues(alpha: 0.06),
+                          .withValues(alpha: 0.08),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.50, 1.0],

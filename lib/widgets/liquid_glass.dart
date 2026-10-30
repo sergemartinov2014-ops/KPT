@@ -53,15 +53,15 @@ class LiquidGlass extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.15),
-                Colors.white.withValues(alpha: 0.05),
+                Colors.white.withValues(alpha: 0.28),
+                Colors.white.withValues(alpha: 0.08),
                 Colors.white.withValues(alpha: 0.02),
               ],
             ),
         boxShadow: [
           // Мягкая пространственная тень стекла
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.50),
+            color: Colors.black.withValues(alpha: 0.45),
             blurRadius: 24,
             offset: const Offset(0, 10),
             spreadRadius: -2,
@@ -69,7 +69,7 @@ class LiquidGlass extends StatelessWidget {
           // Опциональное мягкое внешнее свечение при активном статусе
           if (glowColor != null && glowRadius > 0)
             BoxShadow(
-              color: glowColor!.withValues(alpha: 0.12),
+              color: glowColor!.withValues(alpha: 0.16),
               blurRadius: glowRadius,
               spreadRadius: 0,
             ),
@@ -92,7 +92,7 @@ class LiquidGlass extends StatelessWidget {
                 ),
               ),
 
-            // 2. Глубокий затемнённый стеклянный градиент (Deep Smoky Glass Tint)
+            // 2. Полупрозрачный глубокий стеклянный градиент (Translucent Liquid Obsidian)
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -100,38 +100,59 @@ class LiquidGlass extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      (surfaceColor ?? const Color(0xFF0C1222))
-                          .withValues(alpha: 0.78),
-                      (surfaceColor ?? const Color(0xFF050811))
-                          .withValues(alpha: 0.62),
+                      (surfaceColor ?? const Color(0xFF101932))
+                          .withValues(alpha: 0.58),
+                      (surfaceColor ?? const Color(0xFF060A14))
+                          .withValues(alpha: 0.42),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // 3. Мягкий сатиновый световой скос (Subtle Satin Sheen)
+            // 3. Выразительный оптический скос стекла (Refractive Specular Sheen)
             if (showShine)
               Positioned.fill(
                 child: IgnorePointer(
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.08),
-                          Colors.white.withValues(alpha: 0.015),
+                          Colors.white.withValues(alpha: 0.16),
+                          Colors.white.withValues(alpha: 0.03),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.25, 1.0],
+                        stops: const [0.0, 0.40, 1.0],
                       ),
                     ),
                   ),
                 ),
               ),
 
-            // 4. Контент внутри карточки
+            // 4. Тонкая верхняя световая грань (Specular Top Rim Highlight)
+            Positioned(
+              top: 0,
+              left: radius * 0.35,
+              right: radius * 0.35,
+              height: 1.0,
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.white.withValues(alpha: 0.32),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // 5. Контент внутри карточки
             Padding(
               padding: padding ?? EdgeInsets.zero,
               child: child,
