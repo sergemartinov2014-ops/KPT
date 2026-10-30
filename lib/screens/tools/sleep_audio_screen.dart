@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../models/sleep_audio_clip.dart';
 import '../../providers/sleep_audio_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/liquid_glass.dart';
+import '../../widgets/aurora_canvas.dart';
 
 class SleepAudioScreen extends StatefulWidget {
   const SleepAudioScreen({super.key});
@@ -39,30 +41,32 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
-        children: [
-          _buildHeroControlCard(context, audio),
-          const SizedBox(height: 20),
-          _buildQuickSettingsCard(context, audio),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('ЗАПИСИ СОБЫТИЙ СНА', style: AppTheme.sectionLabel),
-              if (audio.clips.isNotEmpty)
-                Text(
-                  '${audio.clips.length} ${audio.clips.length == 1 ? 'клип' : 'клипов'}',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (audio.clips.isEmpty)
-            _buildEmptyState()
-          else
-            ...audio.clips.map((clip) => _buildClipCard(context, audio, clip)),
-        ],
+      body: AuroraCanvas(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
+          children: [
+            _buildHeroControlCard(context, audio),
+            const SizedBox(height: 20),
+            _buildQuickSettingsCard(context, audio),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('ЗАПИСИ СОБЫТИЙ СНА', style: AppTheme.sectionLabel),
+                if (audio.clips.isNotEmpty)
+                  Text(
+                    '${audio.clips.length} ${audio.clips.length == 1 ? 'клип' : 'клипов'}',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (audio.clips.isEmpty)
+              _buildEmptyState()
+            else
+              ...audio.clips.map((clip) => _buildClipCard(context, audio, clip)),
+          ],
+        ),
       ),
     );
   }
@@ -72,20 +76,19 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
     final isWaiting = audio.isWaitingDelay;
     final isRec = audio.isRecordingClip;
 
-    return Container(
+    return LiquidGlass(
+      radius: 28,
+      blur: 24,
+      surfaceColor: isRec
+          ? AppTheme.error.withValues(alpha: 0.16)
+          : (isRunning
+              ? AppTheme.accent.withValues(alpha: 0.12)
+              : AppTheme.glassSurfaceElevated),
+      glowColor: isRec
+          ? AppTheme.error
+          : (isRunning ? AppTheme.accent : null),
+      glowRadius: isRunning ? 22 : 0,
       padding: const EdgeInsets.all(22),
-      decoration: AppTheme.bentoBox(
-        color: isRec
-            ? AppTheme.error.withValues(alpha: 0.12)
-            : (isRunning
-                ? AppTheme.accent.withValues(alpha: 0.08)
-                : AppTheme.surface),
-        borderColor: isRec
-            ? AppTheme.error.withValues(alpha: 0.5)
-            : (isRunning
-                ? AppTheme.accent.withValues(alpha: 0.35)
-                : AppTheme.surfaceBorder),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -298,9 +301,11 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
   }
 
   Widget _buildQuickSettingsCard(BuildContext context, SleepAudioProvider audio) {
-    return Container(
+    return LiquidGlass(
+      radius: 24,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurface,
       padding: const EdgeInsets.all(18),
-      decoration: AppTheme.bentoBox(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -370,10 +375,12 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      decoration: AppTheme.bentoBox(),
-      child: const Column(
+    return const LiquidGlass(
+      radius: 24,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurface,
+      padding: EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      child: Column(
         children: [
           Icon(Icons.nights_stay_outlined, color: AppTheme.textMuted, size: 40),
           SizedBox(height: 12),
@@ -418,12 +425,13 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
+      child: LiquidGlass(
+        radius: 20,
+        blur: 16,
+        surfaceColor: isPlaying
+            ? AppTheme.accent.withValues(alpha: 0.16)
+            : AppTheme.glassSurface,
         padding: const EdgeInsets.all(16),
-        decoration: AppTheme.bentoBox(
-          color: isPlaying ? AppTheme.surfaceElevated : AppTheme.surface,
-          borderColor: isPlaying ? AppTheme.accent.withValues(alpha: 0.4) : AppTheme.surfaceBorder,
-        ),
         child: Row(
           children: [
             InkWell(

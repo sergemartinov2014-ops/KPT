@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../providers/sleep_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/liquid_glass.dart';
+import '../../widgets/aurora_canvas.dart';
 import '../diary/add_diary_entry_screen.dart';
 import '../settings/data_management_screen.dart';
 import '../tools/stimulus_control_screen.dart';
@@ -72,55 +74,54 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        children: [
-          // 1. Главный прибор: Предписанное окно сна
-          _buildSleepWindowHero(context, window, sleep),
-          const SizedBox(height: 16),
-
-          // 2. Статус сегодняшнего дневника
-          _buildTodayDiarySection(context, sleep),
-          const SizedBox(height: 16),
-
-          // 3. Еженедельная титрация (если накоплено >= 5 ночей)
-          if (titration != null && titration.daysCount >= 5) ...[
-            _buildTitrationCard(context, titration, sleep),
+      body: AuroraCanvas(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
+          children: [
+            // 1. Главный прибор: Предписанное окно сна
+            _buildSleepWindowHero(context, window, sleep),
             const SizedBox(height: 16),
-          ],
 
-          // 4. Экстренный ночной протокол (Правило 20 минут)
-          _buildStimulusControlTile(context),
-          const SizedBox(height: 24),
+            // 2. Статус сегодняшнего дневника
+            _buildTodayDiarySection(context, sleep),
+            const SizedBox(height: 16),
 
-          // 5. Акустический фон для сна
-          _buildQuickAudioSection(context, audio),
-          const SizedBox(height: 28),
+            // 3. Еженедельная титрация (если накоплено >= 5 ночей)
+            if (titration != null && titration.daysCount >= 5) ...[
+              _buildTitrationCard(context, titration, sleep),
+              const SizedBox(height: 16),
+            ],
 
-          // 6. Ненавязчивый клинический футер
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              'Протокол КПТ-И (CBT-i) • Локальное хранение данных.\nИнструмент самопомощи, не заменяет консультацию врача.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: AppTheme.textMuted, height: 1.5),
+            // 4. Экстренный ночной протокол (Правило 20 минут)
+            _buildStimulusControlTile(context),
+            const SizedBox(height: 24),
+
+            // 5. Акустический фон для сна
+            _buildQuickAudioSection(context, audio),
+            const SizedBox(height: 28),
+
+            // 6. Ненавязчивый клинический футер
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                'Протокол КПТ-И (CBT-i) • Локальное хранение данных.\nИнструмент самопомощи, не заменяет консультацию врача.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: AppTheme.textMuted, height: 1.5),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSleepWindowHero(BuildContext context, dynamic window, SleepProvider sleep) {
-    return Container(
-      decoration: AppTheme.bentoBox(
-        radius: 24,
-        gradient: const LinearGradient(
-          colors: [Color(0xFF131A2E), Color(0xFF0C101B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+    return LiquidGlass(
+      radius: 26,
+      blur: 24,
+      surfaceColor: AppTheme.glassSurfaceElevated,
+      glowColor: AppTheme.systemIndigo,
+      glowRadius: 16,
       padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,8 +244,10 @@ class HomeScreen extends StatelessWidget {
       final se = today.sleepEfficiency;
       final Color seColor = se >= 85 ? AppTheme.success : (se >= 80 ? AppTheme.warning : AppTheme.error);
 
-      return Container(
-        decoration: AppTheme.bentoBox(),
+      return LiquidGlass(
+        radius: 22,
+        blur: 20,
+        surfaceColor: AppTheme.glassSurface,
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
@@ -289,63 +292,68 @@ class HomeScreen extends StatelessWidget {
       );
     }
 
-    return InkWell(
+    return LiquidGlass(
+      radius: 22,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurfaceElevated,
       onTap: () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDiaryEntryScreen()));
       },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        decoration: AppTheme.bentoBox(
-          color: AppTheme.surfaceElevated,
-          borderColor: AppTheme.primary.withValues(alpha: 0.35),
-        ),
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.wb_twilight_rounded, color: AppTheme.accent, size: 22),
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Утренний дневник сна', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                  SizedBox(height: 3),
-                  Text('Оцените прошедшую ночь за 1 минуту', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                ],
-              ),
+            child: const Icon(Icons.wb_twilight_rounded, color: AppTheme.accent, size: 22),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Утренний дневник сна', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                SizedBox(height: 3),
+                Text('Оцените прошедшую ночь за 1 минуту', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Text('Заполнить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.primary,
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
-        ),
+            child: const Text('Заполнить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStimulusControlTile(BuildContext context) {
-    return InkWell(
+    return LiquidGlass(
+      radius: 22,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurface,
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          AppTheme.warning.withValues(alpha: 0.35),
+          Colors.white.withValues(alpha: 0.08),
+          Colors.white.withValues(alpha: 0.02),
+        ],
+      ),
       onTap: () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const StimulusControlScreen()));
       },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: AppTheme.bentoBox(),
-        child: Row(
+      padding: const EdgeInsets.all(18),
+      child: Row(
           children: [
             Container(
               width: 44,
@@ -371,15 +379,16 @@ class HomeScreen extends StatelessWidget {
             const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textMuted),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildTitrationCard(BuildContext context, dynamic titration, SleepProvider sleep) {
-    return Container(
-      decoration: AppTheme.bentoBox(
-        borderColor: AppTheme.accent.withValues(alpha: 0.4),
-      ),
+    return LiquidGlass(
+      radius: 22,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurfaceElevated,
+      glowColor: AppTheme.accent,
+      glowRadius: 14,
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

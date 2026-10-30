@@ -4,6 +4,8 @@ import '../../models/smart_alarm_config.dart';
 import '../../providers/sleep_provider.dart';
 import '../../providers/smart_alarm_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/liquid_glass.dart';
+import '../../widgets/aurora_canvas.dart';
 import 'alarm_ringing_screen.dart';
 
 /// Экран управления умным будильником (Obsidian Sanctuary Smart Alarm)
@@ -48,50 +50,52 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
           const SizedBox(width: 12),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
-        children: [
-          // 1. Главная карточка времени и статуса
-          _buildHeroTimeCard(context, alarm),
+      body: AuroraCanvas(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
+          children: [
+            // 1. Главная карточка времени и статуса
+            _buildHeroTimeCard(context, alarm),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // 2. Баннер синхронизации с CBT-i (Целевой подъём)
-          _buildCbtiSyncBanner(context, alarm, sleep),
+            // 2. Баннер синхронизации с CBT-i (Целевой подъём)
+            _buildCbtiSyncBanner(context, alarm, sleep),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // 3. Выбор окна лёгкого сна (Smart Wake Window)
-          const Text('ОКНО ЛЁГКОГО СНА', style: AppTheme.sectionLabel),
-          const SizedBox(height: 10),
-          _buildSmartWindowCard(context, alarm),
+            // 3. Выбор окна лёгкого сна (Smart Wake Window)
+            const Text('ОКНО ЛЁГКОГО СНА', style: AppTheme.sectionLabel),
+            const SizedBox(height: 10),
+            _buildSmartWindowCard(context, alarm),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // 4. Выбор мелодии пробуждения
-          const Text('ЗВУК И МЕЛОДИЯ', style: AppTheme.sectionLabel),
-          const SizedBox(height: 10),
-          _buildSoundPickerCard(context, alarm),
+            // 4. Выбор мелодии пробуждения
+            const Text('ЗВУК И МЕЛОДИЯ', style: AppTheme.sectionLabel),
+            const SizedBox(height: 10),
+            _buildSoundPickerCard(context, alarm),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // 5. Плавное нарастание и вибрация
-          const Text('МЯГКОЕ ПРОБУЖДЕНИЕ', style: AppTheme.sectionLabel),
-          const SizedBox(height: 10),
-          _buildGentleWakeCard(context, alarm),
+            // 5. Плавное нарастание и вибрация
+            const Text('МЯГКОЕ ПРОБУЖДЕНИЕ', style: AppTheme.sectionLabel),
+            const SizedBox(height: 10),
+            _buildGentleWakeCard(context, alarm),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // 6. Дни повтора
-          const Text('ДНИ ПОВТОРА', style: AppTheme.sectionLabel),
-          const SizedBox(height: 10),
-          _buildRepeatDaysCard(context, alarm),
+            // 6. Дни повтора
+            const Text('ДНИ ПОВТОРА', style: AppTheme.sectionLabel),
+            const SizedBox(height: 10),
+            _buildRepeatDaysCard(context, alarm),
 
-          const SizedBox(height: 28),
+            const SizedBox(height: 28),
 
-          // 7. Кнопка тестового запуска
-          _buildTestAlarmButton(context, alarm),
-        ],
+            // 7. Кнопка тестового запуска
+            _buildTestAlarmButton(context, alarm),
+          ],
+        ),
       ),
     );
   }
@@ -101,14 +105,13 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
     final isEnabled = alarm.config.isEnabled;
     final isMonitoring = alarm.state == SmartAlarmState.monitoringLightSleep;
 
-    return Container(
+    return LiquidGlass(
+      radius: 28,
+      blur: 24,
+      surfaceColor: AppTheme.glassSurfaceElevated,
+      glowColor: isMonitoring ? AppTheme.accent : null,
+      glowRadius: isMonitoring ? 20 : 0,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
-      decoration: AppTheme.bentoBox(
-        color: AppTheme.surface,
-        borderColor: isMonitoring
-            ? AppTheme.accent.withValues(alpha: 0.5)
-            : AppTheme.surfaceBorder,
-      ),
       child: Column(
         children: [
           // Статус бейдж
@@ -229,13 +232,11 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
     final isSynced = alarm.config.wakeHour == window.wakeHour &&
         alarm.config.wakeMinute == window.wakeMinute;
 
-    return Container(
+    return LiquidGlass(
+      radius: 18,
+      blur: 16,
+      surfaceColor: AppTheme.glassSurface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: AppTheme.bentoBox(
-        color: AppTheme.surfaceElevated.withValues(alpha: 0.6),
-        borderColor: AppTheme.surfaceBorder,
-        radius: 16,
-      ),
       child: Row(
         children: [
           const Icon(
@@ -312,9 +313,11 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
   ) {
     const options = [0, 15, 20, 30, 45];
 
-    return Container(
+    return LiquidGlass(
+      radius: 24,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurface,
       padding: const EdgeInsets.all(18),
-      decoration: AppTheme.bentoBox(color: AppTheme.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -382,9 +385,11 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
   ) {
     final sound = alarm.config.soundOption;
 
-    return Container(
+    return LiquidGlass(
+      radius: 24,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurface,
       padding: const EdgeInsets.all(18),
-      decoration: AppTheme.bentoBox(color: AppTheme.surface),
       child: Row(
         children: [
           Container(
@@ -451,9 +456,11 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
   ) {
     const rampOptions = [0, 30, 60, 120];
 
-    return Container(
+    return LiquidGlass(
+      radius: 24,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurface,
       padding: const EdgeInsets.all(18),
-      decoration: AppTheme.bentoBox(color: AppTheme.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -551,9 +558,11 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
       {'id': 7, 'name': 'Вс'},
     ];
 
-    return Container(
+    return LiquidGlass(
+      radius: 24,
+      blur: 20,
+      surfaceColor: AppTheme.glassSurface,
       padding: const EdgeInsets.all(18),
-      decoration: AppTheme.bentoBox(color: AppTheme.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

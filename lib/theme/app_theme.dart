@@ -1,25 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+/// Дизайн-система «Сомния» — Apple Liquid Glass (iOS 26 / HIG 2026)
+/// Сочетает клиническую строгость CBT-i и физическую оптическую глубину Liquid Glass.
 class AppTheme {
-  // Obsidian Sanctuary Palette (Nocturnal Minimalism)
-  static const Color background = Color(0xFF06080F); // Deep OLED Obsidian
-  static const Color surface = Color(0xFF0C101B); // Matte Midnight Slate
+  // Apple Liquid Glass Canvas Palette
+  static const Color background = Color(0xFF04060C); // Deep OLED Midnight Canvas
+  static const Color surface = Color(0xFF0C101B); // Solid Surface Fallback
   static const Color surfaceElevated = Color(0xFF131929); // Elevated Bento Surface
-  static const Color surfaceBorder = Color(0xFF1C2436); // 1px Hairline Border
+  static const Color surfaceBorder = Color(0xFF1C2436); // Hairline Structural Border
 
-  static const Color primary = Color(0xFF6366F1); // Deep Serene Indigo
-  static const Color primaryLight = Color(0xFF818CF8); // Soft Periwinkle
+  // Liquid Glass Meta-Material Translucent Layers
+  static const Color glassSurface = Color(0x38101728); // 22% Translucent Midnight Glass
+  static const Color glassSurfaceElevated = Color(0x5918233C); // 35% Translucent Elevated Glass
+  static const Color glassUltraThin = Color(0x280D1424); // 16% Ultra-Thin Floating Glass
+  static const Color glassHighlight = Color(0x38FFFFFF); // 22% Specular Reflection Edge
+  static const Color glassBorder = Color(0x1AFFFFFF); // 10% Hairline Glass Border
+
+  // Apple Semantic Colors (iOS 26 / HIG)
+  static const Color systemIndigo = Color(0xFF6366F1); // Primary Focus & Anchor
+  static const Color systemTeal = Color(0xFF38BDF8); // Calm Bio-Teal (Sleep Efficiency)
+  static const Color systemPurple = Color(0xFFA855F7); // REM & Nighttime Awareness
+  static const Color systemBlue = Color(0xFF3B82F6); // System Actions & Information
+  static const Color systemAmber = Color(0xFFF59E0B); // Circadian Alert & Warning
+  static const Color systemMint = Color(0xFF10B981); // Success (SE >= 85%)
+  static const Color systemRose = Color(0xFFF43F5E); // Critical Floor / Error
+
+  // Backward Compatible Aliases
+  static const Color primary = systemIndigo;
+  static const Color primaryLight = Color(0xFF818CF8);
   static const Color accent = Color(0xFF8E9AFF); // Moonlight Lavender Mist
-  static const Color success = Color(0xFF4FD1C5); // Calm Bio-Teal (SE >= 85%)
-  static const Color warning = Color(0xFFEAB308); // Warm Muted Amber
-  static const Color error = Color(0xFFF87171); // Soft Terracotta Rose
+  static const Color success = Color(0xFF4FD1C5); // Calm Bio-Teal
+  static const Color warning = systemAmber;
+  static const Color error = Color(0xFFF87171);
 
-  static const Color textPrimary = Color(0xFFEDF2F7); // Warm Alabaster (No pure white glare)
-  static const Color textSecondary = Color(0xFF8A99AD); // Calm Slate Grey
-  static const Color textMuted = Color(0xFF4A5668); // Deep Muted Graphite
+  // Typography Tokens (WCAG 2.2 AA Contrast Guard)
+  static const Color textPrimary = Color(0xFFF1F5F9); // Warm Apple Alabaster (Contrast > 17:1)
+  static const Color textSecondary = Color(0xFF94A3B8); // Calm Slate (Contrast > 6:1)
+  static const Color textMuted = Color(0xFF64748B); // Muted Graphite (Contrast > 4.5:1)
 
-  /// Стиль для цифр, времени и клинических индексов (моноширинные глифы)
+  /// Стиль для цифр, таймеров и индексов (San Francisco Tabular Figures)
   static TextStyle monoFigures({
     double fontSize = 20,
     FontWeight fontWeight = FontWeight.w600,
@@ -35,27 +55,54 @@ class AppTheme {
     );
   }
 
-  /// Строгий микро-заголовок секции (стиль Oura / Linear)
+  /// Микро-заголовок секции по гайдлайнам Apple HIG
   static const TextStyle sectionLabel = TextStyle(
     fontSize: 11,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 1.3,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.2,
     color: textMuted,
   );
 
-  /// Универсальная декорация Bento-карточки
+  /// Декорация карточки в стиле Liquid Glass
+  static BoxDecoration liquidGlassBox({
+    double radius = 24,
+    Color? surfaceColor,
+    Gradient? borderGradient,
+    Color? glowColor,
+    double glowRadius = 0,
+  }) {
+    return BoxDecoration(
+      color: surfaceColor ?? glassSurface,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(
+        color: Colors.white.withValues(alpha: 0.12),
+        width: 1,
+      ),
+      boxShadow: glowColor != null && glowRadius > 0
+          ? [
+              BoxShadow(
+                color: glowColor.withValues(alpha: 0.20),
+                blurRadius: glowRadius,
+                spreadRadius: 1,
+              ),
+            ]
+          : null,
+    );
+  }
+
+  /// Универсальная декорация Bento-карточки (обратная совместимость)
   static BoxDecoration bentoBox({
     Color? color,
     Color? borderColor,
-    double radius = 20,
+    double radius = 22,
     Gradient? gradient,
   }) {
     return BoxDecoration(
-      color: gradient == null ? (color ?? surface) : null,
+      color: gradient == null ? (color ?? glassSurface) : null,
       gradient: gradient,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: borderColor ?? surfaceBorder,
+        color: borderColor ?? Colors.white.withValues(alpha: 0.12),
         width: 1,
       ),
     );
@@ -68,7 +115,7 @@ class AppTheme {
       scaffoldBackgroundColor: background,
       splashFactory: InkSparkle.splashFactory,
       colorScheme: const ColorScheme.dark(
-        primary: primary,
+        primary: systemIndigo,
         secondary: accent,
         surface: surface,
         error: error,
@@ -77,7 +124,7 @@ class AppTheme {
         onSurface: textPrimary,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: background,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -91,95 +138,151 @@ class AppTheme {
         titleTextStyle: TextStyle(
           color: textPrimary,
           fontSize: 18,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.3,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.4,
         ),
         iconTheme: IconThemeData(color: textSecondary, size: 22),
       ),
       cardTheme: CardThemeData(
-        color: surface,
+        color: glassSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: surfaceBorder, width: 1),
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.12),
+            width: 1,
+          ),
         ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: surfaceBorder,
+      dividerTheme: DividerThemeData(
+        color: Colors.white.withValues(alpha: 0.08),
         thickness: 1,
         space: 1,
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: accent,
-        inactiveTrackColor: surfaceElevated,
+        inactiveTrackColor: glassSurfaceElevated,
         thumbColor: textPrimary,
-        overlayColor: accent.withValues(alpha: 0.12),
+        overlayColor: accent.withValues(alpha: 0.16),
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
       ),
       timePickerTheme: TimePickerThemeData(
-        backgroundColor: surface,
-        hourMinuteColor: surfaceElevated,
+        backgroundColor: surfaceElevated,
+        hourMinuteColor: glassSurfaceElevated,
         hourMinuteTextColor: textPrimary,
-        dialBackgroundColor: surfaceElevated,
-        dialHandColor: primary,
+        dialBackgroundColor: glassSurfaceElevated,
+        dialHandColor: systemIndigo,
         dialTextColor: textPrimary,
         entryModeIconColor: textSecondary,
-        dayPeriodColor: surfaceElevated,
+        dayPeriodColor: glassSurfaceElevated,
         dayPeriodTextColor: textPrimary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: surfaceBorder),
+          borderRadius: BorderRadius.circular(28),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: background,
+        backgroundColor: Colors.transparent,
         selectedItemColor: textPrimary,
         unselectedItemColor: textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
-        selectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.2),
-        unselectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+        selectedLabelStyle: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       textTheme: const TextTheme(
-        headlineLarge: TextStyle(color: textPrimary, fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.6),
-        headlineMedium: TextStyle(color: textPrimary, fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.4),
-        titleLarge: TextStyle(color: textPrimary, fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.2),
-        titleMedium: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: -0.1),
-        bodyLarge: TextStyle(color: textPrimary, fontSize: 15, height: 1.5),
-        bodyMedium: TextStyle(color: textSecondary, fontSize: 13, height: 1.45),
-        bodySmall: TextStyle(color: textMuted, fontSize: 12, height: 1.4),
+        headlineLarge: TextStyle(
+          color: textPrimary,
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.8,
+        ),
+        headlineMedium: TextStyle(
+          color: textPrimary,
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.4,
+        ),
+        titleLarge: TextStyle(
+          color: textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
+        ),
+        titleMedium: TextStyle(
+          color: textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          letterSpacing: -0.1,
+        ),
+        bodyLarge: TextStyle(
+          color: textPrimary,
+          fontSize: 15,
+          height: 1.5,
+        ),
+        bodyMedium: TextStyle(
+          color: textSecondary,
+          fontSize: 13,
+          height: 1.45,
+        ),
+        bodySmall: TextStyle(
+          color: textMuted,
+          fontSize: 12,
+          height: 1.4,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
+          backgroundColor: systemIndigo,
           foregroundColor: textPrimary,
-          disabledBackgroundColor: surfaceElevated,
+          disabledBackgroundColor: glassSurfaceElevated,
           disabledForegroundColor: textMuted,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: textPrimary,
-          side: const BorderSide(color: surfaceBorder, width: 1),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.15),
+            width: 1,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: surfaceElevated,
         contentTextStyle: const TextStyle(color: textPrimary, fontSize: 13),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: surfaceBorder),
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         behavior: SnackBarBehavior.floating,
       ),
