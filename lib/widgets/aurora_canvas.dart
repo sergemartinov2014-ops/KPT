@@ -34,23 +34,23 @@ class AuroraCanvas extends StatelessWidget {
         // 2. Верхнее ночное пятно свечения (Vibrant Indigo-Violet Aurora)
         if (showTopAurora)
           Positioned(
-            top: -100,
-            right: -60,
+            top: -120,
+            right: -80,
             child: IgnorePointer(
               child: Container(
-                width: 420,
-                height: 420,
+                width: 480,
+                height: 480,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
                       (primaryGlow ?? const Color(0xFF6366F1))
-                          .withValues(alpha: 0.26),
+                          .withValues(alpha: 0.48),
                       (primaryGlow ?? const Color(0xFF4338CA))
-                          .withValues(alpha: 0.10),
+                          .withValues(alpha: 0.22),
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 0.50, 1.0],
+                    stops: const [0.0, 0.45, 1.0],
                   ),
                 ),
               ),
@@ -60,45 +60,46 @@ class AuroraCanvas extends StatelessWidget {
         // 3. Нижнее ночное пятно свечения (Calm Bio-Teal / Cyan Aurora)
         if (showBottomAurora)
           Positioned(
-            bottom: 40,
-            left: -80,
+            bottom: 20,
+            left: -100,
             child: IgnorePointer(
               child: Container(
-                width: 380,
-                height: 380,
+                width: 440,
+                height: 440,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
                       (secondaryGlow ?? const Color(0xFF0EA5E9))
-                          .withValues(alpha: 0.20),
+                          .withValues(alpha: 0.38),
                       (secondaryGlow ?? const Color(0xFF0D9488))
-                          .withValues(alpha: 0.08),
+                          .withValues(alpha: 0.16),
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 0.48, 1.0],
+                    stops: const [0.0, 0.50, 1.0],
                   ),
                 ),
               ),
             ),
           ),
 
-        // 4. Тонкое акцентное пятно по центру (Moonlight Mist)
+        // 4. Тонкое акцентное пятно по центру (Moonlight Mist / Purple Glow)
         Positioned(
-          top: 280,
-          left: -120,
+          top: 320,
+          right: -100,
           child: IgnorePointer(
             child: Container(
-              width: 320,
-              height: 320,
+              width: 380,
+              height: 380,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFA855F7).withValues(alpha: 0.12),
+                    const Color(0xFFA855F7).withValues(alpha: 0.30),
+                    const Color(0xFF818CF8).withValues(alpha: 0.12),
                     Colors.transparent,
                   ],
-                  stops: const [0.0, 1.0],
+                  stops: const [0.0, 0.45, 1.0],
                 ),
               ),
             ),

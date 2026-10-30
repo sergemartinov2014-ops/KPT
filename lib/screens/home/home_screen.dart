@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/sleep_provider.dart';
 import '../../providers/audio_provider.dart';
+import '../../providers/smart_alarm_provider.dart';
+import '../../providers/sleep_audio_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/aurora_canvas.dart';
@@ -9,6 +12,8 @@ import '../diary/add_diary_entry_screen.dart';
 import '../settings/data_management_screen.dart';
 import '../tools/stimulus_control_screen.dart';
 import '../tools/ambient_player_screen.dart';
+import '../tools/smart_alarm_screen.dart';
+import '../tools/sleep_audio_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -17,6 +22,8 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final sleep = context.watch<SleepProvider>();
     final audio = context.watch<AudioProvider>();
+    final smartAlarm = context.watch<SmartAlarmProvider>();
+    final sleepAudio = context.watch<SleepAudioProvider>();
     final window = sleep.currentWindow;
     final titration = sleep.latestTitration;
 
@@ -25,21 +32,26 @@ class HomeScreen extends StatelessWidget {
         titleSpacing: 20,
         title: Row(
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: AppTheme.accent,
-                shape: BoxShape.circle,
+            Image.asset(
+              'assets/icon/app_icon.png',
+              width: 24,
+              height: 24,
+              errorBuilder: (_, __, ___) => Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: AppTheme.accent,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
             const SizedBox(width: 10),
             const Text(
               'СОМНИЯ',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 2.4,
+                letterSpacing: 2.2,
                 color: AppTheme.textPrimary,
               ),
             ),
@@ -82,25 +94,33 @@ class HomeScreen extends StatelessWidget {
             _buildSleepWindowHero(context, window, sleep),
             const SizedBox(height: 16),
 
-            // 2. Статус сегодняшнего дневника
+            // 2. Умный будильник (Smart Alarm из Moonap)
+            _buildSmartAlarmCard(context, smartAlarm),
+            const SizedBox(height: 16),
+
+            // 3. Аудиозапись сна (Sleep Audio Tracker из Moonap)
+            _buildSleepAudioCard(context, sleepAudio),
+            const SizedBox(height: 16),
+
+            // 4. Статус сегодняшнего дневника
             _buildTodayDiarySection(context, sleep),
             const SizedBox(height: 16),
 
-            // 3. Еженедельная титрация (если накоплено >= 5 ночей)
+            // 5. Еженедельная титрация (если накоплено >= 5 ночей)
             if (titration != null && titration.daysCount >= 5) ...[
               _buildTitrationCard(context, titration, sleep),
               const SizedBox(height: 16),
             ],
 
-            // 4. Экстренный ночной протокол (Правило 20 минут)
+            // 6. Экстренный ночной протокол (Правило 20 минут)
             _buildStimulusControlTile(context),
             const SizedBox(height: 24),
 
-            // 5. Акустический фон для сна
+            // 7. Акустический фон для сна
             _buildQuickAudioSection(context, audio),
             const SizedBox(height: 28),
 
-            // 6. Ненавязчивый клинический футер
+            // 8. Ненавязчивый клинический футер
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Text(
@@ -111,6 +131,288 @@ class HomeScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSmartAlarmCard(BuildContext context, SmartAlarmProvider smartAlarm) {
+    final config = smartAlarm.config;
+    final isEnabled = config.isEnabled;
+
+    return LiquidGlass(
+      radius: 24,
+      blur: 24,
+      surfaceColor: isEnabled ? AppTheme.glassSurfaceElevated : AppTheme.glassSurface,
+      glowColor: isEnabled ? AppTheme.systemIndigo : null,
+      glowRadius: isEnabled ? 18 : 0,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppTheme.systemIndigo.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.alarm_rounded, color: AppTheme.systemIndigo, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'УМНЫЙ БУДИЛЬНИК',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: AppTheme.systemIndigo,
+                        ),
+                      ),
+                      Text(
+                        isEnabled ? smartAlarm.formattedCountdown : 'Будильник выключен',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Switch.adaptive(
+                value: isEnabled,
+                activeThumbColor: AppTheme.systemIndigo,
+                onChanged: (val) {
+                  HapticFeedback.lightImpact();
+                  smartAlarm.toggleEnabled(val);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    config.formattedTime,
+                    style: AppTheme.monoFigures(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w700,
+                      color: isEnabled ? AppTheme.textPrimary : AppTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.systemIndigo.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.systemIndigo.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.auto_awesome, size: 11, color: AppTheme.systemIndigo),
+                        const SizedBox(width: 4),
+                        Text(
+                          '±${config.smartWindowMinutes} мин лёгкий сон',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.systemIndigo,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              LiquidGlassInteractive(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SmartAlarmScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.tune_rounded, size: 14, color: AppTheme.textPrimary),
+                      SizedBox(width: 6),
+                      Text(
+                        'Настроить',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.music_note_rounded, size: 14, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Мелодия: ${config.soundOption.title} • Плавное нарастание',
+                  style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSleepAudioCard(BuildContext context, SleepAudioProvider sleepAudio) {
+    final isMonitoring = sleepAudio.isMonitoring;
+    final clipCount = sleepAudio.clips.length;
+
+    return LiquidGlass(
+      radius: 24,
+      blur: 24,
+      surfaceColor: isMonitoring ? AppTheme.glassSurfaceElevated : AppTheme.glassSurface,
+      glowColor: isMonitoring ? AppTheme.systemTeal : null,
+      glowRadius: isMonitoring ? 18 : 0,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppTheme.systemTeal.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isMonitoring ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      color: AppTheme.systemTeal,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'АУДИОЗАПИСЬ СНА',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: AppTheme.systemTeal,
+                        ),
+                      ),
+                      Text(
+                        isMonitoring
+                            ? 'Идет анализ звуков (${sleepAudio.currentDb.toStringAsFixed(0)} дБ)'
+                            : (clipCount > 0 ? 'Записано $clipCount событий' : 'Готов к ночному мониторингу'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isMonitoring ? AppTheme.systemTeal : AppTheme.textSecondary,
+                          fontWeight: isMonitoring ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Switch.adaptive(
+                value: isMonitoring,
+                activeThumbColor: AppTheme.systemTeal,
+                onChanged: (val) {
+                  HapticFeedback.lightImpact();
+                  if (val) {
+                    sleepAudio.startMonitoring();
+                  } else {
+                    sleepAudio.stopMonitoring();
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  isMonitoring
+                      ? 'Фиксация храпа, разговоров и фаз ворочания в фоновом режиме'
+                      : 'Автоматическая запись необычных звуков сна с порогом ${sleepAudio.startThresholdDb.toStringAsFixed(0)} дБ',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+                ),
+              ),
+              const SizedBox(width: 12),
+              LiquidGlassInteractive(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SleepAudioScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.graphic_eq_rounded, size: 14, color: AppTheme.textPrimary),
+                      SizedBox(width: 6),
+                      Text(
+                        'Записи',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'liquid_glass_modal.dart';
@@ -42,32 +41,43 @@ class LiquidGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Безопасный радиус размытия для Web (без лагов рендеринга)
-    final effectiveBlur = kIsWeb ? (blur > 8 ? 8.0 : blur) : blur;
+    // Оптимальный радиус размытия для Liquid Glass
+    final effectiveBlur = blur;
 
     Widget glassCard = Container(
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
+        gradient: borderGradient ??
+            LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.36),
+                Colors.white.withValues(alpha: 0.12),
+                Colors.white.withValues(alpha: 0.04),
+              ],
+            ),
         boxShadow: [
           // Мягкая пространственная тень стекла
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.40),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
             spreadRadius: -2,
           ),
           // Опциональное внешнее свечение при активном статусе
           if (glowColor != null && glowRadius > 0)
             BoxShadow(
-              color: glowColor!.withValues(alpha: 0.30),
+              color: glowColor!.withValues(alpha: 0.35),
               blurRadius: glowRadius,
-              spreadRadius: 1,
+              spreadRadius: 2,
             ),
         ],
       ),
+      padding: EdgeInsets.all(borderWidth),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(radius - borderWidth),
         child: Stack(
           children: [
             // 1. Оптический блюр фонового контента
@@ -90,10 +100,10 @@ class LiquidGlass extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      (surfaceColor ?? const Color(0xFF1E293B))
-                          .withValues(alpha: 0.35),
-                      (surfaceColor ?? const Color(0xFF0F172A))
-                          .withValues(alpha: 0.20),
+                      (surfaceColor ?? const Color(0xFF131D36))
+                          .withValues(alpha: 0.55),
+                      (surfaceColor ?? const Color(0xFF090E1D))
+                          .withValues(alpha: 0.30),
                     ],
                   ),
                 ),
@@ -110,34 +120,18 @@ class LiquidGlass extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.white.withValues(alpha: 0.16),
-                          Colors.white.withValues(alpha: 0.02),
+                          Colors.white.withValues(alpha: 0.22),
+                          Colors.white.withValues(alpha: 0.04),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.25, 1.0],
+                        stops: const [0.0, 0.30, 1.0],
                       ),
                     ),
                   ),
                 ),
               ),
 
-            // 4. Световая фаска (Luminous Specular Rim Border)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(radius),
-                    border: Border.all(
-                      color: borderColor ??
-                          Colors.white.withValues(alpha: 0.20),
-                      width: borderWidth,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // 5. Контент внутри карточки
+            // 4. Контент внутри карточки
             Padding(
               padding: padding ?? EdgeInsets.zero,
               child: child,
