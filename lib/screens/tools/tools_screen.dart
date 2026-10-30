@@ -3,6 +3,7 @@ import '../../theme/app_theme.dart';
 import 'stimulus_control_screen.dart';
 import 'breathing_screen.dart';
 import 'ambient_player_screen.dart';
+import 'sleep_audio_screen.dart';
 import '../assessments/isi_screen.dart';
 import '../assessments/dbas_screen.dart';
 
@@ -47,6 +48,15 @@ class ToolsScreen extends StatelessWidget {
             tag: '8 СЦЕН',
             tagColor: AppTheme.primaryLight,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AmbientPlayerScreen())),
+          ),
+          _buildToolCard(
+            context,
+            icon: Icons.mic_none_rounded,
+            title: 'Аудиозапись сна',
+            subtitle: 'Умная фиксация храпа, разговоров во сне и шорохов с автоотсечкой тишины',
+            tag: 'SMART REC',
+            tagColor: AppTheme.accent,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SleepAudioScreen())),
           ),
 
           const SizedBox(height: 20),

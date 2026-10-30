@@ -6,6 +6,7 @@ import 'theme/app_theme.dart';
 import 'services/storage_service.dart';
 import 'providers/sleep_provider.dart';
 import 'providers/audio_provider.dart';
+import 'providers/sleep_audio_provider.dart';
 import 'screens/navigation/main_navigation_screen.dart';
 import 'screens/onboarding/disclaimer_screen.dart';
 
@@ -20,6 +21,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => SleepProvider(storageService)),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
+        ChangeNotifierProvider(create: (_) => SleepAudioProvider()),
       ],
       child: SomniaApp(initialRouteIsDisclaimer: !hasAcceptedDisclaimer),
     ),
