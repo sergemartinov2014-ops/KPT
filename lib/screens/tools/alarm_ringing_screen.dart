@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/smart_alarm_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/liquid_glass.dart';
 import '../diary/add_diary_entry_screen.dart';
 
 /// Полноэкранный экран активного звонка умного будильника (Obsidian Sanctuary Wake Up)
@@ -157,14 +158,14 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
                       ),
                       const SizedBox(height: 20),
 
-                      // Индикатор нарастания громкости (Ramp-up bar)
-                      Container(
+                      // Индикатор нарастания громкости (Liquid Glass Ramp-up bar)
+                      LiquidGlass(
+                        radius: 20,
+                        blur: 16,
+                        surfaceColor: AppTheme.glassSurface,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
-                        ),
-                        decoration: AppTheme.bentoBox(
-                          color: AppTheme.surface.withValues(alpha: 0.8),
                         ),
                         child: Column(
                           children: [
@@ -205,22 +206,18 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
 
                       if (isSmartWake) ...[
                         const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accent.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppTheme.accent.withValues(alpha: 0.2),
-                            ),
-                          ),
+                        LiquidGlass(
+                          radius: 16,
+                          blur: 14,
+                          surfaceColor: AppTheme.accent.withValues(alpha: 0.12),
+                          padding: const EdgeInsets.all(14),
                           child: const Text(
                             'Акселерометр и аудиосенсор зафиксировали выход из глубокого сна. Пробуждение сейчас снижает утреннюю сонливость.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.4,
-                              color: AppTheme.textSecondary,
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                         ),

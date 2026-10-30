@@ -75,22 +75,27 @@ class AppTheme {
       color: surfaceColor ?? glassSurface,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: Colors.white.withValues(alpha: 0.12),
-        width: 1,
+        color: Colors.white.withValues(alpha: 0.18),
+        width: 1.1,
       ),
-      boxShadow: glowColor != null && glowRadius > 0
-          ? [
-              BoxShadow(
-                color: glowColor.withValues(alpha: 0.20),
-                blurRadius: glowRadius,
-                spreadRadius: 1,
-              ),
-            ]
-          : null,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.35),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
+          spreadRadius: -2,
+        ),
+        if (glowColor != null && glowRadius > 0)
+          BoxShadow(
+            color: glowColor.withValues(alpha: 0.25),
+            blurRadius: glowRadius,
+            spreadRadius: 1,
+          ),
+      ],
     );
   }
 
-  /// Универсальная декорация Bento-карточки (обратная совместимость)
+  /// Универсальная декорация Bento-карточки (обратная совместимость с Liquid Glass)
   static BoxDecoration bentoBox({
     Color? color,
     Color? borderColor,
@@ -98,13 +103,31 @@ class AppTheme {
     Gradient? gradient,
   }) {
     return BoxDecoration(
-      color: gradient == null ? (color ?? glassSurface) : null,
-      gradient: gradient,
+      color: color,
+      gradient: gradient ??
+          (color == null
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF1E293B).withValues(alpha: 0.35),
+                    const Color(0xFF0F172A).withValues(alpha: 0.20),
+                  ],
+                )
+              : null),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: borderColor ?? Colors.white.withValues(alpha: 0.12),
-        width: 1,
+        color: borderColor ?? Colors.white.withValues(alpha: 0.18),
+        width: 1.1,
       ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.30),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+          spreadRadius: -2,
+        ),
+      ],
     );
   }
 

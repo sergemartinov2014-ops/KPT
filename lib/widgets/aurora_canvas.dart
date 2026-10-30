@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// Холст с ночной хроматической авророй (Liquid Glass Ambient Canvas)
-/// Создаёт мягкие глубокие световые пятна позади полупрозрачных стеклянных панелей.
+/// Создаёт глубокие световые пятна позади полупрозрачных стеклянных панелей,
+/// благодаря которым эффект Liquid Glass виден отчетливо и физично.
 class AuroraCanvas extends StatelessWidget {
   final Widget child;
   final bool showTopAurora;
@@ -30,11 +31,37 @@ class AuroraCanvas extends StatelessWidget {
           ),
         ),
 
-        // 2. Верхнее ночное пятно свечения (Deep Indigo Aurora)
+        // 2. Верхнее ночное пятно свечения (Vibrant Indigo-Violet Aurora)
         if (showTopAurora)
           Positioned(
-            top: -120,
-            right: -80,
+            top: -100,
+            right: -60,
+            child: IgnorePointer(
+              child: Container(
+                width: 420,
+                height: 420,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      (primaryGlow ?? const Color(0xFF6366F1))
+                          .withValues(alpha: 0.26),
+                      (primaryGlow ?? const Color(0xFF4338CA))
+                          .withValues(alpha: 0.10),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.50, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // 3. Нижнее ночное пятно свечения (Calm Bio-Teal / Cyan Aurora)
+        if (showBottomAurora)
+          Positioned(
+            bottom: 40,
+            left: -80,
             child: IgnorePointer(
               child: Container(
                 width: 380,
@@ -43,46 +70,42 @@ class AuroraCanvas extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      (primaryGlow ?? AppTheme.systemIndigo)
-                          .withValues(alpha: 0.16),
-                      (primaryGlow ?? AppTheme.systemIndigo)
-                          .withValues(alpha: 0.04),
+                      (secondaryGlow ?? const Color(0xFF0EA5E9))
+                          .withValues(alpha: 0.20),
+                      (secondaryGlow ?? const Color(0xFF0D9488))
+                          .withValues(alpha: 0.08),
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 0.55, 1.0],
+                    stops: const [0.0, 0.48, 1.0],
                   ),
                 ),
               ),
             ),
           ),
 
-        // 3. Нижнее ночное пятно свечения (Calm Bio-Teal Aurora)
-        if (showBottomAurora)
-          Positioned(
-            bottom: 60,
-            left: -100,
-            child: IgnorePointer(
-              child: Container(
-                width: 360,
-                height: 360,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      (secondaryGlow ?? AppTheme.systemTeal)
-                          .withValues(alpha: 0.12),
-                      (secondaryGlow ?? AppTheme.systemTeal)
-                          .withValues(alpha: 0.03),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.55, 1.0],
-                  ),
+        // 4. Тонкое акцентное пятно по центру (Moonlight Mist)
+        Positioned(
+          top: 280,
+          left: -120,
+          child: IgnorePointer(
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFA855F7).withValues(alpha: 0.12),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 1.0],
                 ),
               ),
             ),
           ),
+        ),
 
-        // 4. Контент страницы
+        // 5. Контент страницы
         child,
       ],
     );

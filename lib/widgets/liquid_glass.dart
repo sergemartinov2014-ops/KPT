@@ -1,9 +1,10 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// Базовый мета-материал Liquid Glass (Apple HIG iOS 26 / macOS Tahoe)
-/// Обеспечивает физическую оптическую рефракцию, двойную световую фаску и гладкие скругления.
+/// Базовый мета-материал Liquid Glass (Apple HIG iOS 26 / Glassmorphism)
+/// Обеспечивает физическую оптическую глубину, световую фаску, верхний блик и высокую производительность на Web и Mobile.
 class LiquidGlass extends StatelessWidget {
   final Widget child;
   final double blur;
@@ -22,12 +23,12 @@ class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
     super.key,
     required this.child,
-    this.blur = 20.0,
+    this.blur = 18.0,
     this.radius = 24.0,
     this.surfaceColor,
     this.borderGradient,
     this.borderColor,
-    this.borderWidth = 1.0,
+    this.borderWidth = 1.1,
     this.padding,
     this.margin,
     this.onTap,
@@ -38,99 +39,126 @@ class LiquidGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget content = Container(
-      padding: padding,
+    // Безопасный радиус размытия для Web (без лагов рендеринга)
+    final effectiveBlur = kIsWeb ? (blur > 8 ? 8.0 : blur) : blur;
+
+    Widget glassCard = Container(
+      margin: margin,
       decoration: BoxDecoration(
-        color: surfaceColor ?? AppTheme.glassSurface,
         borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          // Мягкая пространственная тень стекла
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+            spreadRadius: -2,
+          ),
+          // Опциональное внешнее свечение при активном статусе
+          if (glowColor != null && glowRadius > 0)
+            BoxShadow(
+              color: glowColor!.withValues(alpha: 0.30),
+              blurRadius: glowRadius,
+              spreadRadius: 1,
+            ),
+        ],
       ),
-      child: Stack(
-        children: [
-          // Внутренний градиент естественного скольжения света (Specular Sheen)
-          if (showShine)
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Stack(
+          children: [
+            // 1. Оптический блюр фонового контента
+            if (effectiveBlur > 0)
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: effectiveBlur,
+                    sigmaY: effectiveBlur,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+
+            // 2. Полупрозрачный стеклянный градиент (Frosted Glass Tint)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      (surfaceColor ?? const Color(0xFF1E293B))
+                          .withValues(alpha: 0.35),
+                      (surfaceColor ?? const Color(0xFF0F172A))
+                          .withValues(alpha: 0.20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 3. Верхний световой скос (Specular Sheen)
+            if (showShine)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.16),
+                          Colors.white.withValues(alpha: 0.02),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.25, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // 4. Световая фаска (Luminous Specular Rim Border)
             Positioned.fill(
               child: IgnorePointer(
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.07),
-                        Colors.white.withValues(alpha: 0.01),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.35, 1.0],
+                    border: Border.all(
+                      color: borderColor ??
+                          Colors.white.withValues(alpha: 0.20),
+                      width: borderWidth,
                     ),
                   ),
                 ),
               ),
             ),
-          child,
-        ],
-      ),
-    );
 
-    // Оптический блюр (BackdropFilter)
-    content = ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: content,
-      ),
-    );
-
-    // Световая фаска (Border Gradient / Specular Rim)
-    content = Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        gradient: borderGradient ??
-            LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.22),
-                Colors.white.withValues(alpha: 0.08),
-                Colors.white.withValues(alpha: 0.02),
-              ],
-              stops: const [0.0, 0.45, 1.0],
-            ),
-      ),
-      padding: EdgeInsets.all(borderWidth),
-      child: content,
-    );
-
-    // Внешнее свечение при активном статусе (Glow Aura)
-    if (glowColor != null && glowRadius > 0) {
-      content = Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: [
-            BoxShadow(
-              color: glowColor!.withValues(alpha: 0.25),
-              blurRadius: glowRadius,
-              spreadRadius: 1,
+            // 5. Контент внутри карточки
+            Padding(
+              padding: padding ?? EdgeInsets.zero,
+              child: child,
             ),
           ],
         ),
-        child: content,
-      );
-    }
-
-    if (margin != null) {
-      content = Padding(padding: margin!, child: content);
-    }
+      ),
+    );
 
     if (onTap != null) {
-      content = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: content,
+      return Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(radius),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(radius),
+          onTap: onTap,
+          splashColor: Colors.white.withValues(alpha: 0.08),
+          highlightColor: Colors.white.withValues(alpha: 0.04),
+          child: glassCard,
+        ),
       );
     }
 
-    return content;
+    return glassCard;
   }
 }
 
@@ -155,10 +183,11 @@ class LiquidGlassPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlass(
       radius: 30,
-      blur: 14,
+      blur: 10,
       padding: padding,
       surfaceColor: color ?? AppTheme.glassSurfaceElevated,
-      borderColor: borderColor,
+      borderColor: borderColor ?? Colors.white.withValues(alpha: 0.25),
+      borderWidth: 1.0,
       onTap: onTap,
       child: child,
     );

@@ -49,6 +49,47 @@ class SomniaApp extends StatelessWidget {
       title: 'Сомния',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        final isDesktop = mediaQuery.size.width > 540;
+
+        if (!isDesktop) return child!;
+
+        const double frameWidth = 460.0;
+        return Container(
+          color: const Color(0xFF020307),
+          child: Center(
+            child: Container(
+              width: frameWidth,
+              height: mediaQuery.size.height,
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                border: Border.symmetric(
+                  vertical: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 1,
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 50,
+                    spreadRadius: 8,
+                  ),
+                ],
+              ),
+              child: ClipRect(
+                child: MediaQuery(
+                  data: mediaQuery.copyWith(
+                    size: Size(frameWidth, mediaQuery.size.height),
+                  ),
+                  child: child!,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
