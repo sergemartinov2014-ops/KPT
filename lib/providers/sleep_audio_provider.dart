@@ -15,6 +15,7 @@ class SleepAudioProvider extends ChangeNotifier {
   String? get playingClipId => _service.playingClipId;
   int get delayMinutes => _service.delayMinutes;
   double get startThresholdDb => _service.startThresholdDb;
+  String? get lastError => _service.lastError;
 
   SleepAudioProvider() {
     _service.onStateChanged = () => notifyListeners();
@@ -32,9 +33,11 @@ class SleepAudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> playClip(SleepAudioClip clip) async {
-    await _service.playClip(clip);
+  /// Возвращает `null` при успехе либо текст ошибки для UI.
+  Future<String?> playClip(SleepAudioClip clip) async {
+    final result = await _service.playClip(clip);
     notifyListeners();
+    return result;
   }
 
   Future<void> stopPlaying() async {

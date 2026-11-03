@@ -1,3 +1,5 @@
+import 'dart:io';
+
 enum SleepSoundType {
   snore,
   talk,
@@ -20,6 +22,13 @@ enum SleepSoundType {
 
 class SleepAudioClip {
   final String id;
+
+  /// Имя файла записи (например, `sleep_clip_1712345678901.wav`).
+  ///
+  /// Исторически здесь хранился абсолютный путь. Для совместимости со
+  /// старыми сохранениями поле сохранено, но новые записи содержат только
+  /// имя файла: iOS меняет путь к sandbox-контейнеру между обновлениями,
+  /// поэтому абсолютный путь быстро становится недействительным.
   final String filePath;
   final DateTime timestamp;
   final int durationSeconds;
@@ -34,6 +43,36 @@ class SleepAudioClip {
     required this.peakDecibels,
     required this.soundType,
   });
+
+  /// Только имя файла — без каталога.
+  String get fileName {
+    final normalized = filePath.replaceAll('\\', '/');
+    final index = normalized.lastIndexOf('/');
+    return index == -1 ? normalized : normalized.substring(index + 1);
+  }
+
+  /// Абсолютный путь нужно вычислять во время выполнения: каталог документов
+  /// приложения может измениться после переустановки/обновления.
+  String absolutePath(String recordsDirectoryPath) =>
+      '$recordsDirectoryPath${Platform.pathSeparator}$fileName';
+
+  SleepAudioClip copyWith({
+    String? id,
+    String? filePath,
+    DateTime? timestamp,
+    int? durationSeconds,
+    double? peakDecibels,
+    SleepSoundType? soundType,
+  }) {
+    return SleepAudioClip(
+      id: id ?? this.id,
+      filePath: filePath ?? this.filePath,
+      timestamp: timestamp ?? this.timestamp,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      peakDecibels: peakDecibels ?? this.peakDecibels,
+      soundType: soundType ?? this.soundType,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,

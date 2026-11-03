@@ -5,10 +5,13 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_theme.dart';
 import 'services/storage_service.dart';
+import 'services/native_bridge_service.dart';
+import 'providers/app_lock_provider.dart';
 import 'providers/sleep_provider.dart';
 import 'providers/audio_provider.dart';
 import 'providers/sleep_audio_provider.dart';
 import 'providers/smart_alarm_provider.dart';
+import 'widgets/app_lock_gate.dart';
 import 'screens/navigation/main_navigation_screen.dart';
 import 'screens/onboarding/disclaimer_screen.dart';
 
@@ -24,11 +27,17 @@ void main() async {
     sleepRecorderService: sleepAudioProvider.service,
   );
 
+  // Защита файлов (Data Protection) и исключение из iCloud-бэкапа.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NativeBridgeService.protectFileSystem();
+  });
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SleepProvider(storageService)),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
+        ChangeNotifierProvider(create: (_) => AppLockProvider(prefs)),
         ChangeNotifierProvider.value(value: sleepAudioProvider),
         ChangeNotifierProvider.value(value: smartAlarmProvider),
       ],
@@ -119,9 +128,11 @@ class SomniaApp extends StatelessWidget {
         Locale('en', 'US'),
       ],
       locale: const Locale('ru', 'RU'),
-      home: initialRouteIsDisclaimer
-          ? const DisclaimerScreen()
-          : const MainNavigationScreen(),
+      home: AppLockGate(
+        child: initialRouteIsDisclaimer
+            ? const DisclaimerScreen()
+            : const MainNavigationScreen(),
+      ),
     );
   }
 }

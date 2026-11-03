@@ -212,7 +212,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
                           surfaceColor: AppTheme.accent.withValues(alpha: 0.12),
                           padding: const EdgeInsets.all(14),
                           child: const Text(
-                            'Акселерометр и аудиосенсор зафиксировали выход из глубокого сна. Пробуждение сейчас снижает утреннюю сонливость.',
+                            'Микрофон зафиксировал усиление звуковой активности — возможный признак поверхностного сна. Пробуждение в этой фазе может проходить легче.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
@@ -311,9 +311,11 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
   }
 
   void _handleSnooze(BuildContext context, SmartAlarmProvider alarm) {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     alarm.snooze();
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
+    navigator.pop();
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           'Будильник отложен на ${alarm.config.snoozeDurationMinutes} мин',
@@ -328,13 +330,17 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
     SmartAlarmProvider alarm,
   ) async {
     final isTest = alarm.wakeUpReason == 'test';
+    final navigator = Navigator.of(context);
     await alarm.dismiss();
 
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    navigator.pop();
 
     if (!isTest) {
-      _showMorningDiaryPrompt(context);
+      final overlay = navigator.overlay;
+      if (overlay != null) {
+        _showMorningDiaryPrompt(overlay.context);
+      }
     }
   }
 

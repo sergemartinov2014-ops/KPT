@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/sleep_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/aurora_canvas.dart';
@@ -9,6 +11,7 @@ import 'sleep_audio_screen.dart';
 import 'smart_alarm_screen.dart';
 import '../assessments/isi_screen.dart';
 import '../assessments/dbas_screen.dart';
+import '../assessments/psqi_screen.dart';
 
 /// Экран практик и диагностики в стиле Apple Liquid Glass (iOS 26)
 class ToolsScreen extends StatelessWidget {
@@ -16,6 +19,9 @@ class ToolsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sleep = context.watch<SleepProvider>();
+    final psqiDone = sleep.hasPsqiThisMonth;
+
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 20,
@@ -129,6 +135,22 @@ class ToolsScreen extends StatelessWidget {
             ),
             FadeSlideEntrance(
               delayMs: 240,
+              child: _buildToolCard(
+                context,
+                icon: Icons.nightlight_round,
+                title: 'Качество сна (PSQI)',
+                subtitle:
+                    'Месячный клинический опросник: 7 компонентов сна, итоговый индекс 0–21 и порог плохого качества',
+                tag: psqiDone ? 'Пройден' : '1 раз в месяц',
+                tagColor: AppTheme.systemPurple,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PsqiScreen()),
+                ),
+              ),
+            ),
+            FadeSlideEntrance(
+              delayMs: 280,
               child: _buildToolCard(
                 context,
                 icon: Icons.psychology_outlined,

@@ -6,7 +6,6 @@ import '../../providers/smart_alarm_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/aurora_canvas.dart';
-import 'alarm_ringing_screen.dart';
 
 /// Экран управления умным будильником (Obsidian Sanctuary Smart Alarm)
 class SmartAlarmScreen extends StatefulWidget {
@@ -21,18 +20,6 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
   Widget build(BuildContext context) {
     final alarm = context.watch<SmartAlarmProvider>();
     final sleep = context.watch<SleepProvider>();
-
-    // Если будильник зазвонил прямо сейчас — автоматически открываем экран звонка
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (alarm.isRinging && ModalRoute.of(context)?.isCurrent == true) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const AlarmRingingScreen(),
-            fullscreenDialog: true,
-          ),
-        );
-      }
-    });
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -656,15 +643,8 @@ class _SmartAlarmScreenState extends State<SmartAlarmScreen> {
       height: 52,
       child: OutlinedButton(
         onPressed: () async {
+          // Экран звонка откроет глобальный обработчик в MainNavigationScreen.
           await alarm.testAlarm();
-          if (!context.mounted) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const AlarmRingingScreen(),
-              fullscreenDialog: true,
-            ),
-          );
         },
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.accent,

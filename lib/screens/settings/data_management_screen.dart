@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../providers/app_lock_provider.dart';
 import '../../providers/sleep_provider.dart';
 import '../../services/clinical_report_service.dart';
 import '../../theme/app_theme.dart';
@@ -20,14 +21,17 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final sleep = context.watch<SleepProvider>();
+    final appLock = context.watch<AppLockProvider>();
     final entries = sleep.entries;
     final window = sleep.currentWindow;
     final isiHistory = sleep.isiHistory;
+    final psqiHistory = sleep.psqiHistory;
 
     final reportText = ClinicalReportService.generateReport(
       entries: entries,
       currentWindow: window,
       isiHistory: isiHistory,
+      psqiHistory: psqiHistory,
       days: _selectedDays,
     );
 
@@ -94,15 +98,31 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        icon: const Icon(Icons.copy_rounded, size: 17),
-                        label: const Text('Скопировать клинический отчет'),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: reportText));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Отчет скопирован в буфер обмена'),
-                            ),
-                          );
+                        icon: const Icon(Icons.ios_share_rounded, size: 17),
+                        label: const Text('Поделиться клиническим отчетом'),
+                        onPressed: () async {
+                          final box =
+                              context.findRenderObject() as RenderBox?;
+                          try {
+                            await SharePlus.instance.share(
+                              ShareParams(
+                                text: reportText,
+                                subject: 'Клинический отчет «Сомния»',
+                                sharePositionOrigin: box == null
+                                    ? null
+                                    : box.localToGlobal(Offset.zero) & box.size,
+                              ),
+                            );
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Не удалось открыть системное окно «Поделиться»',
+                                ),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ),
@@ -155,7 +175,51 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 3. Метрики локального хранилища (Offline-First)
+            // 3. Защита доступа Face ID
+            FadeSlideEntrance(
+              delayMs: 90,
+              child: LiquidGlass(
+                radius: 20,
+                blur: 16,
+                surfaceColor: AppTheme.glassSurface,
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Защита доступа', style: AppTheme.sectionLabel),
+                          SizedBox(height: 4),
+                          Text(
+                            'Блокировка Face ID',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Запрашивать Face ID при открытии приложения. Содержимое скрывается в переключателе задач.',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: appLock.isEnabled,
+                      onChanged: (value) => appLock.setEnabled(value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 4. Метрики локального хранилища (Offline-First)
             FadeSlideEntrance(
               delayMs: 120,
               child: Row(
@@ -203,6 +267,28 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: LiquidGlass(
+                      radius: 20,
+                      blur: 16,
+                      surfaceColor: AppTheme.glassSurface,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Тесты PSQI', style: AppTheme.sectionLabel),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${psqiHistory.length}',
+                            style: AppTheme.monoFigures(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.systemPurple),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text('Раз в месяц', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -226,7 +312,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Безвозвратное стирание локальной истории дневника сна, тестов ISI и сброс предписанного окна сна.',
+                      'Безвозвратное стирание локальной истории дневника сна, тестов ISI и PSQI, а также сброс предписанного окна сна.',
                       style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
                     ),
                     const SizedBox(height: 14),

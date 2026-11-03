@@ -230,8 +230,11 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                   final ok = await audio.startMonitoring();
                   if (!ok && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Предоставьте доступ к микрофону в настройках телефона'),
+                      SnackBar(
+                        content: Text(
+                          audio.lastError ??
+                              'Предоставьте доступ к микрофону в настройках телефона',
+                        ),
                       ),
                     );
                   }
@@ -435,7 +438,14 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
         child: Row(
           children: [
             InkWell(
-              onTap: () => audio.playClip(clip),
+              onTap: () async {
+                final error = await audio.playClip(clip);
+                if (error != null && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error)),
+                  );
+                }
+              },
               borderRadius: BorderRadius.circular(20),
               child: Container(
                 width: 44,

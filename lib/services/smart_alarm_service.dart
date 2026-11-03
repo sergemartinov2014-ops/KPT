@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/smart_alarm_config.dart';
+import 'native_bridge_service.dart';
 import 'sleep_audio_recorder_service.dart';
 
 /// Сервис умного будильника (Moonap Smart Alarm Engine)
 class SmartAlarmService {
   static const String _prefsKey = 'somnia_smart_alarm_config';
+  static const String _lastHandledKey = 'somnia_alarm_last_handled';
 
   final AudioPlayer _player = AudioPlayer();
   final SleepAudioRecorderService? _sleepRecorderService;
@@ -45,6 +47,8 @@ class SmartAlarmService {
   Future<void> init() async {
     await _loadConfig();
     _startScheduleChecker();
+    await _syncNativeSchedule();
+    await _checkMissedAlarm();
   }
 
   /// Загрузка настроек из SharedPreferences
@@ -72,7 +76,74 @@ class SmartAlarmService {
       debugPrint('[SmartAlarmService] Error saving config: $e');
     }
     _updateInitialState();
+    await _syncNativeSchedule();
     onStateChanged?.call();
+  }
+
+  /// Дублирует расписание в нативные локальные уведомления, чтобы будильник
+  /// срабатывал даже при полностью закрытом приложении.
+  Future<void> _syncNativeSchedule() async {
+    if (!NativeBridgeService.isSupported) return;
+    try {
+      if (!_config.isEnabled) {
+        await NativeBridgeService.cancelAlarm();
+        return;
+      }
+      await NativeBridgeService.scheduleAlarm(
+        enabled: true,
+        hour: _config.wakeHour,
+        minute: _config.wakeMinute,
+        days: _config.repeatDays,
+      );
+    } catch (e) {
+      debugPrint('[SmartAlarmService] Native schedule error: $e');
+    }
+  }
+
+  DateTime _targetForDate(DateTime day) => DateTime(
+        day.year,
+        day.month,
+        day.day,
+        _config.wakeHour,
+        _config.wakeMinute,
+      );
+
+  /// Догоняющий запуск, если приложение было закрыто в момент будильника.
+  Future<void> _checkMissedAlarm() async {
+    if (!_config.isEnabled) return;
+    if (_state == SmartAlarmState.ringing) return;
+
+    final now = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
+    final lastHandled = prefs.getInt(_lastHandledKey) ?? 0;
+
+    for (var daysAgo = 0; daysAgo <= 1; daysAgo++) {
+      final day = now.subtract(Duration(days: daysAgo));
+      final target = _targetForDate(day);
+
+      if (_config.repeatDays.isNotEmpty &&
+          !_config.repeatDays.contains(target.weekday)) {
+        continue;
+      }
+
+      final elapsed = now.difference(target);
+      if (elapsed.isNegative || elapsed > const Duration(minutes: 20)) {
+        continue;
+      }
+      if (lastHandled == target.millisecondsSinceEpoch) continue;
+
+      await prefs.setInt(_lastHandledKey, target.millisecondsSinceEpoch);
+      await triggerAlarm(reason: 'missed_target');
+      return;
+    }
+  }
+
+  Future<void> _markHandledNow() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+      _lastHandledKey,
+      _targetForDate(DateTime.now()).millisecondsSinceEpoch,
+    );
   }
 
   void _updateInitialState() {
@@ -259,6 +330,7 @@ class SmartAlarmService {
   /// Полное отключение будильника (Dismiss)
   Future<void> dismiss() async {
     _stopRingingInternal();
+    await _markHandledNow();
     _currentSnoozeCount = 0;
     _wakeUpReason = null;
     _state = _config.isEnabled ? SmartAlarmState.scheduled : SmartAlarmState.idle;

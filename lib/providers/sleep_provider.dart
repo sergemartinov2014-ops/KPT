@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/psqi_result.dart';
 import '../models/sleep_diary_entry.dart';
 import '../models/sleep_window.dart';
 import '../services/storage_service.dart';
@@ -129,6 +130,29 @@ class SleepProvider extends ChangeNotifier {
   Future<void> saveIsiResult(int score, String title) async {
     await _storage.saveIsiResult(score, title, DateTime.now());
     notifyListeners();
+  }
+
+  List<Map<String, dynamic>> get psqiHistory => _storage.loadPsqiHistory();
+
+  Future<void> savePsqiResult(PsqiResult result) async {
+    await _storage.savePsqiResult(result.toJson());
+    notifyListeners();
+  }
+
+  /// Последний результат PSQI (или null, если тест ещё не проходили).
+  Map<String, dynamic>? get latestPsqi {
+    final history = _storage.loadPsqiHistory();
+    return history.isEmpty ? null : history.first;
+  }
+
+  /// Пройден ли PSQI в текущем календарном месяце.
+  bool get hasPsqiThisMonth {
+    final latest = latestPsqi;
+    if (latest == null) return false;
+    final date = DateTime.tryParse(latest['date'] as String? ?? '');
+    if (date == null) return false;
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month;
   }
 
   Future<void> clearAllData() async {

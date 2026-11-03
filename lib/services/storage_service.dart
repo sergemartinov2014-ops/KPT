@@ -7,6 +7,7 @@ class StorageService {
   static const String _keyDiaryEntries = 'somnia_diary_entries';
   static const String _keySleepWindow = 'somnia_sleep_window';
   static const String _keyIsiHistory = 'somnia_isi_history';
+  static const String _keyPsqiHistory = 'somnia_psqi_history';
   static const String _keySafeModeSRT = 'somnia_is_safe_mode_srt';
 
   final SharedPreferences _prefs;
@@ -93,11 +94,31 @@ class StorageService {
     await _prefs.setStringList(_keyIsiHistory, jsonList);
   }
 
+  // --- История PSQI (месячный опросник) ---
+
+  List<Map<String, dynamic>> loadPsqiHistory() {
+    final List<String>? jsonList = _prefs.getStringList(_keyPsqiHistory);
+    if (jsonList == null) return [];
+    return jsonList
+        .map((str) => Map<String, dynamic>.from(json.decode(str)))
+        .toList()
+      ..sort((a, b) => (b['date'] as String? ?? '')
+          .compareTo(a['date'] as String? ?? ''));
+  }
+
+  Future<void> savePsqiResult(Map<String, dynamic> result) async {
+    final history = loadPsqiHistory();
+    history.add(result);
+    final jsonList = history.map((e) => json.encode(e)).toList();
+    await _prefs.setStringList(_keyPsqiHistory, jsonList);
+  }
+
   /// Полное удаление всех данных пользователя (GDPR / 152-ФЗ)
   Future<void> clearAllData() async {
     await _prefs.remove(_keyDiaryEntries);
     await _prefs.remove(_keySleepWindow);
     await _prefs.remove(_keyIsiHistory);
+    await _prefs.remove(_keyPsqiHistory);
     await _prefs.remove(_keySafeModeSRT);
   }
 }

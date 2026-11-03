@@ -8,6 +8,7 @@ class ClinicalReportService {
     required List<SleepDiaryEntry> entries,
     required SleepWindow currentWindow,
     required List<Map<String, dynamic>> isiHistory,
+    List<Map<String, dynamic>> psqiHistory = const [],
     int days = 14,
   }) {
     final now = DateTime.now();
@@ -69,8 +70,30 @@ class ClinicalReportService {
       buffer.writeln();
     }
 
+    // Динамика PSQI (Питтсбургский индекс качества сна)
+    if (psqiHistory.isNotEmpty) {
+      buffer.writeln('4. ПИТТСБУРГСКИЙ ИНДЕКС КАЧЕСТВА СНА (PSQI, 0–21 балл):');
+      for (var item in psqiHistory) {
+        final date = DateTime.tryParse(item['date'] ?? '') ?? now;
+        final total = (item['total'] as num?)?.toInt() ?? 0;
+        final status = total > 5 ? 'плохое качество сна' : 'хорошее качество сна';
+        final components = [
+          'C1=${item['c1'] ?? 0}',
+          'C2=${item['c2'] ?? 0}',
+          'C3=${item['c3'] ?? 0}',
+          'C4=${item['c4'] ?? 0}',
+          'C5=${item['c5'] ?? 0}',
+          'C6=${item['c6'] ?? 0}',
+          'C7=${item['c7'] ?? 0}',
+        ].join(', ');
+        buffer.writeln('• ${dateFormat.format(date)}: $total баллов — $status');
+        buffer.writeln('  Компоненты: $components');
+      }
+      buffer.writeln();
+    }
+
     // Посуточный лог ночей
-    buffer.writeln('4. ПОСУТОЧНЫЙ ЖУРНАЛ СНА:');
+    buffer.writeln('5. ПОСУТОЧНЫЙ ЖУРНАЛ СНА:');
     buffer.writeln('Дата       | Отбой | Подъем| В кровати | Чистый сон | SE %  | Качество');
     buffer.writeln('-----------+-------+-------+-----------+------------+-------+---------');
 

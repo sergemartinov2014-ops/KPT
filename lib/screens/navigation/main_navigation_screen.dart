@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../home/home_screen.dart';
 import '../diary/diary_screen.dart';
 import '../tools/tools_screen.dart';
 import '../learn/learn_screen.dart';
+import '../tools/alarm_ringing_screen.dart';
+import '../../providers/smart_alarm_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/liquid_glass.dart';
 
@@ -16,6 +19,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  bool _alarmRouteOpen = false;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -26,6 +30,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final smartAlarm = context.watch<SmartAlarmProvider>();
+    if (smartAlarm.isRinging && !_alarmRouteOpen) {
+      _openAlarmRoute();
+    }
+
     return Scaffold(
       extendBody: true, // Позволяет контенту плавно прокручиваться под стеклом
       body: IndexedStack(
@@ -75,6 +84,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ),
       ),
     );
+  }
+
+  void _openAlarmRoute() {
+    _alarmRouteOpen = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const AlarmRingingScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+      _alarmRouteOpen = false;
+    });
   }
 
   Widget _buildNavItem(
