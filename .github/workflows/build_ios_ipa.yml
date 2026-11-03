@@ -7,7 +7,12 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
+    # Apple Silicon (macos-latest/macos-15) runners are heavily oversubscribed:
+    # jobs can be cancelled with "not acquired by Runner ... after multiple
+    # attempts". The Intel macOS 15 image has the same Xcode 16 toolchain and
+    # is much easier to acquire.
+    runs-on: macos-15-intel
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -34,14 +39,17 @@ jobs:
 
       - name: Package into IPA
         run: |
+          set -euo pipefail
+          rm -rf build/ios/ipa
           mkdir -p build/ios/ipa/Payload
-          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          test -d build/ios/iphoneos/Runner.app
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
           zip -r -y somnia.ipa Payload
-          cd ../../..
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: somnia-ios-ipa
           path: build/ios/ipa/somnia.ipa
+          if-no-files-found: error
