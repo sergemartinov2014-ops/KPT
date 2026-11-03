@@ -533,6 +533,12 @@ class SleepAudioRecorderService {
   ///
   /// Возвращает `null` при успехе либо текст ошибки для показа пользователю.
   Future<String?> playClip(SleepAudioClip clip) async {
+    if (_isMonitoring && !_isWaitingDelay) {
+      _lastError = 'Остановите ночной монитор, чтобы прослушать запись.';
+      onStateChanged?.call();
+      return _lastError;
+    }
+
     if (_playingClipId == clip.id && _player.playing) {
       await _player.pause();
       _playingClipId = null;
@@ -558,13 +564,11 @@ class SleepAudioRecorderService {
         return _lastError;
       }
 
-      if (!_isMonitoring) {
-        // just_audio не настраивает AVAudioSession category. Без этого звук
-        // уходит в разговорный динамик или глушится переключателем «Бесшумно».
-        final session = await AudioSession.instance;
-        await session.configure(const AudioSessionConfiguration.speech());
-        await session.setActive(true);
-      }
+      // just_audio не настраивает AVAudioSession category. Без этого звук
+      // уходит в разговорный динамик или глушится переключателем «Бесшумно».
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.speech());
+      await session.setActive(true);
 
       await _player.setFilePath(path);
       _playingClipId = clip.id;

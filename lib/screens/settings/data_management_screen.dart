@@ -103,14 +103,22 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                         onPressed: () async {
                           final box =
                               context.findRenderObject() as RenderBox?;
+                          final fallback = Rect.fromCenter(
+                            center: MediaQuery.of(context)
+                                .size
+                                .center(Offset.zero),
+                            width: 1,
+                            height: 1,
+                          );
+                          final shareOrigin = box != null && box.hasSize
+                              ? box.localToGlobal(Offset.zero) & box.size
+                              : fallback;
                           try {
                             await SharePlus.instance.share(
                               ShareParams(
                                 text: reportText,
                                 subject: 'Клинический отчет «Сомния»',
-                                sharePositionOrigin: box == null
-                                    ? null
-                                    : box.localToGlobal(Offset.zero) & box.size,
+                                sharePositionOrigin: shareOrigin,
                               ),
                             );
                           } catch (_) {
