@@ -1,0 +1,44 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:somnia/services/audio_event_classifier.dart';
+
+import 'support/audio_test_signals.dart';
+
+void main() {
+  test('тон 1 кГц: centroid около 1000 Гц, высокая периодичность', () {
+    final f = AudioEventClassifier.analyzeFeatures(
+      tone(freq: 1000, seconds: 1, amplitude: 0.2),
+    );
+    expect(f.centroidHz, inInclusiveRange(850, 1150));
+    expect(f.pitchStrength, greaterThan(0.5));
+    expect(f.zcr, closeTo(0.125, 0.03));
+    expect(f.flatness, lessThan(0.2));
+  });
+
+  test('огибающая 1 Гц распознаётся как модуляция', () {
+    final f = AudioEventClassifier.analyzeFeatures(
+      amTone(modHz: 1, seconds: 4),
+    );
+    expect(f.envelopeModulation, greaterThan(0.4));
+  });
+
+  test('тишина не даёт NaN и активных кадров', () {
+    final f = AudioEventClassifier.analyzeFeatures(silence());
+    expect(f.durationMs, 2000);
+    expect(f.activeRatio, 0);
+    expect(f.centroidHz.isFinite, isTrue);
+    expect(f.flatness.isFinite, isTrue);
+    expect(f.rmsDb, lessThan(-90));
+  });
+
+  test('нечётная длина буфера не роняет анализ', () {
+    final pcm = tone(seconds: 0.2);
+    final odd = pcm.sublist(0, pcm.length - 1);
+    expect(() => AudioEventClassifier.analyzeFeatures(odd), returnsNormally);
+  });
+
+  test('клиппованный сигнал не даёт пик выше 0 dBFS', () {
+    final loud = AudioEventClassifier.analyzeFeatures(tone(amplitude: 3.0));
+    expect(loud.peakDb, lessThanOrEqualTo(0.0));
+    expect(loud.peakDb.isFinite, isTrue);
+  });
+}
