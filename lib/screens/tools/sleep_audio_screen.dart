@@ -481,6 +481,17 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                           color: typeColor,
                         ),
                       ),
+                      if (clip.confidence != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '${(clip.confidence! * 100).round()}%',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                      ],
                       const Spacer(),
                       Text(
                         _timeFormat.format(clip.timestamp),
