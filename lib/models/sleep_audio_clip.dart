@@ -35,6 +35,10 @@ class SleepAudioClip {
   final double peakDecibels;
   final SleepSoundType soundType;
 
+  /// Уверенность классификации 0…1. `null` у записей, созданных до
+  /// появления DSP-классификатора.
+  final double? confidence;
+
   const SleepAudioClip({
     required this.id,
     required this.filePath,
@@ -42,6 +46,7 @@ class SleepAudioClip {
     required this.durationSeconds,
     required this.peakDecibels,
     required this.soundType,
+    this.confidence,
   });
 
   /// Только имя файла — без каталога.
@@ -63,6 +68,7 @@ class SleepAudioClip {
     int? durationSeconds,
     double? peakDecibels,
     SleepSoundType? soundType,
+    double? confidence,
   }) {
     return SleepAudioClip(
       id: id ?? this.id,
@@ -71,6 +77,7 @@ class SleepAudioClip {
       durationSeconds: durationSeconds ?? this.durationSeconds,
       peakDecibels: peakDecibels ?? this.peakDecibels,
       soundType: soundType ?? this.soundType,
+      confidence: confidence ?? this.confidence,
     );
   }
 
@@ -81,6 +88,7 @@ class SleepAudioClip {
         'durationSeconds': durationSeconds,
         'peakDecibels': peakDecibels,
         'soundType': soundType.name,
+        if (confidence != null) 'confidence': confidence,
       };
 
   factory SleepAudioClip.fromJson(Map<String, dynamic> json) => SleepAudioClip(
@@ -93,5 +101,6 @@ class SleepAudioClip {
           (e) => e.name == json['soundType'],
           orElse: () => SleepSoundType.snore,
         ),
+        confidence: (json['confidence'] as num?)?.toDouble(),
       );
 }

@@ -36,5 +36,30 @@ void main() {
       expect(SleepSoundType.movement.label, 'Шорох / движение');
       expect(SleepSoundType.ambient.label, 'Шум в комнате');
     });
+
+    test('confidence переживает JSON-сериализацию', () {
+      final clip = SleepAudioClip(
+        id: 'a',
+        filePath: 'a.wav',
+        timestamp: DateTime(2026, 1, 1),
+        durationSeconds: 5,
+        peakDecibels: -20,
+        soundType: SleepSoundType.snore,
+        confidence: 0.82,
+      );
+      expect(SleepAudioClip.fromJson(clip.toJson()).confidence, 0.82);
+    });
+
+    test('старый JSON без confidence читается', () {
+      final json = <String, dynamic>{
+        'id': 'a',
+        'filePath': 'a.wav',
+        'timestamp': '2026-01-01T00:00:00.000',
+        'durationSeconds': 5,
+        'peakDecibels': -20,
+        'soundType': 'talk',
+      };
+      expect(SleepAudioClip.fromJson(json).confidence, isNull);
+    });
   });
 }
