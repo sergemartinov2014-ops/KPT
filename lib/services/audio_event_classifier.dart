@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import '../models/sleep_audio_clip.dart';
+
 /// Акустические признаки фрагмента, посчитанные по PCM 16-бит моно.
 class AudioFeatures {
   /// Длительность фрагмента, мс.
@@ -99,6 +101,28 @@ class AudioFeatures {
         'low=${lowRatio.toStringAsFixed(2)}, mid=${midRatio.toStringAsFixed(2)}, '
         'high=${highRatio.toStringAsFixed(2)}, mod=${envelopeModulation.toStringAsFixed(2)} '
         '@ ${syllableRateHz.toStringAsFixed(2)} Hz)';
+  }
+}
+
+/// Результат классификации события сна.
+class AudioClassification {
+  final SleepSoundType type;
+
+  /// Уверенность 0…1: доля лучшей оценки в сумме всех оценок.
+  final double confidence;
+
+  final AudioFeatures features;
+
+  const AudioClassification({
+    required this.type,
+    required this.confidence,
+    required this.features,
+  });
+
+  @override
+  String toString() {
+    return 'AudioClassification(${type.name}, '
+        '${(confidence * 100).toStringAsFixed(0)}%) $features';
   }
 }
 
@@ -293,6 +317,99 @@ class AudioEventClassifier {
       envelopeModulation: modulation.depth,
       syllableRateHz: modulation.rateHz,
       tonalStability: tonalStability,
+    );
+  }
+
+  /// Классифицирует фрагмент по акустическим признакам.
+  static AudioClassification classify(
+    Uint8List pcm, {
+    int sampleRate = 16000,
+  }) {
+    final AudioFeatures f = analyzeFeatures(pcm, sampleRate: sampleRate);
+
+    // Тишина: уверенности нет, событие не определено.
+    if (f.activeRatio == 0 || f.peakDb < -55) {
+      return AudioClassification(
+        type: SleepSoundType.ambient,
+        confidence: 0,
+        features: f,
+      );
+    }
+
+    // Слишком короткий фрагмент не даёт спектральной картины.
+    if (f.durationMs < 400) {
+      return AudioClassification(
+        type: SleepSoundType.movement,
+        confidence: 0.5,
+        features: f,
+      );
+    }
+
+    final double mod = f.envelopeModulation;
+    final double zcrNorm = (f.zcr / 0.5).clamp(0.0, 1.0);
+    final double flatNorm = (f.flatness / 0.4).clamp(0.0, 1.0);
+
+    double snore = 0.30 * f.lowRatio +
+        0.22 * f.pitchStrength +
+        0.14 * (1 - f.flatness) +
+        0.10 * (1 - zcrNorm) +
+        0.14 * mod +
+        0.10 * (1 - f.flux) -
+        0.25 * f.midRatio -
+        0.15 * f.highRatio;
+    // Храп — низкочастотный и модулированный; стационарный гул не храп.
+    if (mod < 0.2) snore *= 0.3;
+    if (f.lowRatio < 0.3) snore *= 0.4;
+    if (f.pitchStrength < 0.2) snore *= 0.5;
+
+    double talk = 0.32 * f.midRatio +
+        0.24 * mod +
+        0.16 * f.flux +
+        0.10 * f.pitchStrength +
+        0.12 * zcrNorm -
+        0.25 * f.lowRatio;
+    if (f.midRatio < 0.25) talk *= 0.4;
+    if (mod < 0.15) talk *= 0.5;
+
+    double movement = 0.30 * flatNorm +
+        0.28 * f.highRatio +
+        0.18 * f.flux +
+        0.14 * (1 - f.pitchStrength) +
+        0.10 * zcrNorm +
+        0.10 * (1 - f.tonalStability);
+    if (f.highRatio < 0.15 && f.flatness < 0.25) movement *= 0.5;
+
+    final double ambient = 0.45 * (1 - f.flux) +
+        0.25 * (1 - f.pitchStrength) +
+        0.15 * (1 - mod) +
+        0.15 * (1 - f.highRatio);
+
+    final List<double> scores = <double>[
+      snore.clamp(0.0, 1.0),
+      talk.clamp(0.0, 1.0),
+      movement.clamp(0.0, 1.0),
+      ambient.clamp(0.0, 1.0),
+    ];
+    const List<SleepSoundType> types = <SleepSoundType>[
+      SleepSoundType.snore,
+      SleepSoundType.talk,
+      SleepSoundType.movement,
+      SleepSoundType.ambient,
+    ];
+
+    var bestIndex = 0;
+    for (var i = 1; i < scores.length; i++) {
+      if (scores[i] > scores[bestIndex]) bestIndex = i;
+    }
+
+    final double sum = scores.fold(0.0, (a, b) => a + b);
+    final double confidence =
+        sum > 1e-9 ? (scores[bestIndex] / sum).clamp(0.0, 1.0) : 0.0;
+
+    return AudioClassification(
+      type: types[bestIndex],
+      confidence: confidence,
+      features: f,
     );
   }
 
@@ -492,7 +609,8 @@ class AudioEventClassifier {
       }
     }
     if (bestLag == 0) return const _Modulation(0, 0);
-    return _Modulation(best.clamp(0.0, 1.0), frameRate / bestLag);
+    final double variability = (math.sqrt(variance / n) / (mean + _eps)).clamp(0.0, 1.0);
+    return _Modulation((best * variability).clamp(0.0, 1.0), frameRate / bestLag);
   }
 
   /// Итеративное БПФ радикс-2 на месте.
