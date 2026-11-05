@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/sleep_audio_clip.dart';
+import 'audio_event_classifier.dart';
 
 /// Ночной монитор звуков сна.
 ///
@@ -414,14 +415,10 @@ class SleepAudioRecorderService {
       final file = File('${recordsDir.path}${Platform.pathSeparator}$fileName');
       await _writeWavFile(file, pcm);
 
-      SleepSoundType type;
-      if (roundedDuration > 6 && peakDb > -26) {
-        type = SleepSoundType.snore;
-      } else if (roundedDuration > 3 && peakDb > -22) {
-        type = SleepSoundType.talk;
-      } else {
-        type = SleepSoundType.movement;
-      }
+      final classification = AudioEventClassifier.classify(
+        pcm,
+        sampleRate: _sampleRate,
+      );
 
       final clip = SleepAudioClip(
         id: _uuid.v4(),
@@ -429,7 +426,8 @@ class SleepAudioRecorderService {
         timestamp: startTime,
         durationSeconds: roundedDuration,
         peakDecibels: peakDb,
-        soundType: type,
+        soundType: classification.type,
+        confidence: classification.confidence,
       );
 
       _clips.insert(0, clip);
