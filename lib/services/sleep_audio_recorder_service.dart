@@ -415,7 +415,7 @@ class SleepAudioRecorderService {
       final file = File('${recordsDir.path}${Platform.pathSeparator}$fileName');
       await _writeWavFile(file, pcm);
 
-      final classification = AudioEventClassifier.classify(
+      final classification = await AudioEventClassifier.classifyAsync(
         pcm,
         sampleRate: _sampleRate,
       );

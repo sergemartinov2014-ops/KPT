@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -324,8 +325,7 @@ class AudioEventClassifier {
   static AudioClassification classify(
     Uint8List pcm, {
     int sampleRate = 16000,
-  }) {
-    final AudioFeatures f = analyzeFeatures(pcm, sampleRate: sampleRate);
+  }) {    final AudioFeatures f = analyzeFeatures(pcm, sampleRate: sampleRate);
 
     // Тишина: уверенности нет, событие не определено.
     if (f.activeRatio == 0 || f.peakDb < -55) {
@@ -411,6 +411,17 @@ class AudioEventClassifier {
       confidence: confidence,
       features: f,
     );
+  }
+
+  /// Классифицирует фрагмент в отдельном изоляте.
+  ///
+  /// Анализ клипа до 45 с занимает сотни миллисекунд; на UI-изоляте это
+  /// заметный рывок при финализации. Изолят держит интерфейс плавным.
+  static Future<AudioClassification> classifyAsync(
+    Uint8List pcm, {
+    int sampleRate = 16000,
+  }) {
+    return Isolate.run(() => classify(pcm, sampleRate: sampleRate));
   }
 
   static double _fillFrame(

@@ -101,4 +101,11 @@ void main() {
       SleepSoundType.movement,
     );
   });
+
+  test('асинхронная классификация не блокирует UI-изолят', () async {
+    final pcm = snoreSignal(seconds: 45);
+    final r = await AudioEventClassifier.classifyAsync(pcm);
+    expect(r.type, SleepSoundType.snore);
+    expect(r.confidence, greaterThan(0.35));
+  });
 }
