@@ -19,6 +19,14 @@ class DiaryScreen extends StatelessWidget {
     final sleep = context.watch<SleepProvider>();
     final entries = sleep.entries;
 
+    // Родительский Scaffold (extendBody) прокидывает в padding.bottom высоту
+    // плавающего таб-бара. Сам Scaffold дополнительно поднимает FAB на
+    // kFloatingActionButtonMargin + viewPadding.bottom. Вычитаем системный
+    // инсет, чтобы кнопка стояла в 16pt над капсулой на любом устройстве.
+    final MediaQueryData media = MediaQuery.of(context);
+    final double fabBottomInset =
+        (media.padding.bottom - media.viewPadding.bottom).clamp(0.0, double.infinity).toDouble();
+
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 20,
@@ -38,7 +46,7 @@ class DiaryScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 70), // Парит над плавающим таб-баром
+        padding: EdgeInsets.only(bottom: fabBottomInset),
         child: FloatingActionButton.extended(
           backgroundColor: AppTheme.systemIndigo,
           elevation: 0,
