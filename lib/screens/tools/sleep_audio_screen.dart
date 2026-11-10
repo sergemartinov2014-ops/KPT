@@ -56,7 +56,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                 if (audio.clips.isNotEmpty)
                   Text(
                     '${audio.clips.length} ${audio.clips.length == 1 ? 'клип' : 'клипов'}',
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textMuted),
                   ),
               ],
             ),
@@ -64,7 +65,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
             if (audio.clips.isEmpty)
               _buildEmptyState()
             else
-              ...audio.clips.map((clip) => _buildClipCard(context, audio, clip)),
+              ...audio.clips
+                  .map((clip) => _buildClipCard(context, audio, clip)),
           ],
         ),
       ),
@@ -84,9 +86,7 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
           : (isRunning
               ? AppTheme.accent.withValues(alpha: 0.12)
               : AppTheme.glassSurfaceElevated),
-      glowColor: isRec
-          ? AppTheme.error
-          : (isRunning ? AppTheme.accent : null),
+      glowColor: isRec ? AppTheme.error : (isRunning ? AppTheme.accent : null),
       glowRadius: isRunning ? 22 : 0,
       padding: const EdgeInsets.all(22),
       child: Column(
@@ -168,17 +168,17 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
               ),
             ],
           ),
-
           if (isRunning) ...[
             const SizedBox(height: 20),
-            _buildLiveSoundMeter(audio.currentDb, audio.startThresholdDb),
+            _buildLiveSoundMeter(audio.currentDb, audio.triggerThresholdDb),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Записано за сессию: ${audio.sessionClipCount} / 50',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 if (isWaiting)
                   TextButton(
@@ -195,18 +195,15 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
               ],
             ),
           ],
-
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isRunning
-                    ? AppTheme.surfaceElevated
-                    : AppTheme.accent,
-                foregroundColor: isRunning
-                    ? AppTheme.error
-                    : const Color(0xFF06080F),
+                backgroundColor:
+                    isRunning ? AppTheme.surfaceElevated : AppTheme.accent,
+                foregroundColor:
+                    isRunning ? AppTheme.error : const Color(0xFF06080F),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -221,7 +218,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
               ),
               label: Text(
                 isRunning ? 'Остановить мониторинг' : 'Включить на ночь',
-                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w700),
               ),
               onPressed: () async {
                 if (isRunning) {
@@ -268,7 +266,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                color: isOverThreshold ? AppTheme.error : AppTheme.textSecondary,
+                color:
+                    isOverThreshold ? AppTheme.error : AppTheme.textSecondary,
               ),
             ),
           ],
@@ -303,7 +302,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
     );
   }
 
-  Widget _buildQuickSettingsCard(BuildContext context, SleepAudioProvider audio) {
+  Widget _buildQuickSettingsCard(
+      BuildContext context, SleepAudioProvider audio) {
     return LiquidGlass(
       radius: 24,
       blur: 20,
@@ -314,7 +314,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.hourglass_top_rounded, color: AppTheme.accent, size: 18),
+              Icon(Icons.hourglass_top_rounded,
+                  color: AppTheme.accent, size: 18),
               SizedBox(width: 8),
               Text(
                 'Задержка включения микрофона',
@@ -358,7 +359,9 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.accent.withValues(alpha: 0.15) : AppTheme.surfaceElevated,
+            color: isSelected
+                ? AppTheme.accent.withValues(alpha: 0.15)
+                : AppTheme.surfaceElevated,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected ? AppTheme.accent : AppTheme.surfaceBorder,
@@ -389,20 +392,25 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
           SizedBox(height: 12),
           Text(
             'Нет сохраненных фрагментов',
-            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+            style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary),
           ),
           SizedBox(height: 6),
           Text(
             'Включите мониторинг перед сном. Приложение автоматически запишет моменты храпа, разговоров или резких шорохов.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.45),
+            style: TextStyle(
+                fontSize: 12.5, color: AppTheme.textSecondary, height: 1.45),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildClipCard(BuildContext context, SleepAudioProvider audio, SleepAudioClip clip) {
+  Widget _buildClipCard(
+      BuildContext context, SleepAudioProvider audio, SleepAudioClip clip) {
     final isPlaying = audio.playingClipId == clip.id;
 
     IconData typeIcon;
@@ -423,6 +431,10 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
       case SleepSoundType.ambient:
         typeIcon = Icons.volume_up_rounded;
         typeColor = AppTheme.warning;
+        break;
+      case SleepSoundType.unknown:
+        typeIcon = Icons.help_outline_rounded;
+        typeColor = AppTheme.textMuted;
         break;
     }
 
@@ -451,10 +463,14 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isPlaying ? AppTheme.accent : typeColor.withValues(alpha: 0.12),
+                  color: isPlaying
+                      ? AppTheme.accent
+                      : typeColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isPlaying ? AppTheme.accent : typeColor.withValues(alpha: 0.3),
+                    color: isPlaying
+                        ? AppTheme.accent
+                        : typeColor.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Icon(
@@ -508,20 +524,24 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                     children: [
                       Text(
                         '${clip.durationSeconds} сек',
-                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
+                        style: const TextStyle(
+                            fontSize: 11.5, color: AppTheme.textSecondary),
                       ),
                       const Text(
                         ' • ',
-                        style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+                        style: TextStyle(
+                            fontSize: 11.5, color: AppTheme.textMuted),
                       ),
                       Text(
                         'Пик ${clip.peakDecibels.toStringAsFixed(0)} dB',
-                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
+                        style: const TextStyle(
+                            fontSize: 11.5, color: AppTheme.textSecondary),
                       ),
                       const Spacer(),
                       Text(
                         _dateFormat.format(clip.timestamp),
-                        style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
+                        style: const TextStyle(
+                            fontSize: 10.5, color: AppTheme.textMuted),
                       ),
                     ],
                   ),
@@ -530,7 +550,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, size: 19, color: AppTheme.textMuted),
+              icon: const Icon(Icons.delete_outline_rounded,
+                  size: 19, color: AppTheme.textMuted),
               tooltip: 'Удалить фрагмент',
               onPressed: () => audio.deleteClip(clip.id),
             ),
@@ -564,7 +585,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 20, color: AppTheme.textSecondary),
+                      icon: const Icon(Icons.close_rounded,
+                          size: 20, color: AppTheme.textSecondary),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -572,13 +594,18 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                 const SizedBox(height: 6),
                 const Text(
                   'Чем выше значение (ближе к 0 dB), тем громче должен быть храп или шум, чтобы началась запись.',
-                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      color: AppTheme.textSecondary,
+                      height: 1.4),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Порог активации:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    const Text('Порог активации:',
+                        style: TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 13)),
                     Text(
                       '${tempThreshold.toStringAsFixed(0)} dB',
                       style: const TextStyle(
@@ -603,8 +630,12 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Очень чуткий (-50 dB)', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                    Text('Только громкий (-15 dB)', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    Text('Очень чуткий (-50 dB)',
+                        style:
+                            TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    Text('Только громкий (-15 dB)',
+                        style:
+                            TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -615,9 +646,11 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.accent,
                       foregroundColor: const Color(0xFF06080F),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text('Сохранить', style: TextStyle(fontWeight: FontWeight.w700)),
+                    child: const Text('Сохранить',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
                     onPressed: () {
                       audio.updateSettings(threshold: tempThreshold);
                       Navigator.pop(ctx);
@@ -648,7 +681,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
             style: TextButton.styleFrom(
               minimumSize: const Size(80, 44),
             ),
-            child: const Text('Отмена', style: TextStyle(color: AppTheme.textSecondary)),
+            child: const Text('Отмена',
+                style: TextStyle(color: AppTheme.textSecondary)),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
@@ -664,7 +698,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
               audio.clearAllClips();
               Navigator.pop(ctx);
             },
-            child: const Text('Удалить', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text('Удалить',
+                style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),

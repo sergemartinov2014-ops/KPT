@@ -1,0 +1,261 @@
+{
+  "dataset": "synthetic (synth.py)",
+  "warning": "No real labelled nights were available. These numbers do not estimate real-world accuracy.",
+  "train_rows": 3360,
+  "val_rows": 1120,
+  "test_rows": 1120,
+  "temperature": 1.0800000000000007,
+  "unknown_threshold": 0.8100000000000005,
+  "train": {
+    "split": "train",
+    "rows": 3360,
+    "coverage": 0.9422619047619047,
+    "unknown_rate": 0.05773809523809524,
+    "accuracy_known": 0.9921036007580544,
+    "macro_f1": 0.9568513036145978,
+    "snore_precision": 0.9675090252707581,
+    "snore_recall": 0.950354609929078,
+    "talk_to_snore_rate": 0.0,
+    "ece": 0.005117461057003643,
+    "per_class": {
+      "snore": {
+        "precision": 0.9675090252707581,
+        "recall": 0.950354609929078,
+        "f1": 0.9588550983899821,
+        "support": 282
+      },
+      "talk": {
+        "precision": 0.9846153846153847,
+        "recall": 0.9302325581395349,
+        "f1": 0.9566517189835575,
+        "support": 344
+      },
+      "movement": {
+        "precision": 0.9525862068965517,
+        "recall": 0.9404255319148936,
+        "f1": 0.9464668094218416,
+        "support": 235
+      },
+      "ambient": {
+        "precision": 1.0,
+        "recall": 0.933173269307723,
+        "f1": 0.9654315876630097,
+        "support": 2499
+      }
+    },
+    "confusion": {
+      "labels": [
+        "snore",
+        "talk",
+        "movement",
+        "ambient",
+        "unknown"
+      ],
+      "matrix": [
+        [
+          268,
+          0,
+          0,
+          0,
+          14
+        ],
+        [
+          0,
+          320,
+          0,
+          0,
+          24
+        ],
+        [
+          0,
+          0,
+          221,
+          0,
+          14
+        ],
+        [
+          9,
+          5,
+          11,
+          2332,
+          142
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "val": {
+    "split": "val",
+    "rows": 1120,
+    "coverage": 0.9401785714285714,
+    "unknown_rate": 0.059821428571428574,
+    "accuracy_known": 0.9895536562203229,
+    "macro_f1": 0.9421727963218609,
+    "snore_precision": 1.0,
+    "snore_recall": 0.922077922077922,
+    "talk_to_snore_rate": 0.0,
+    "ece": 0.010709425511063362,
+    "per_class": {
+      "snore": {
+        "precision": 1.0,
+        "recall": 0.922077922077922,
+        "f1": 0.9594594594594594,
+        "support": 77
+      },
+      "talk": {
+        "precision": 0.9905660377358491,
+        "recall": 0.8823529411764706,
+        "f1": 0.9333333333333333,
+        "support": 119
+      },
+      "movement": {
+        "precision": 0.8666666666666667,
+        "recall": 0.9558823529411765,
+        "f1": 0.9090909090909091,
+        "support": 68
+      },
+      "ambient": {
+        "precision": 1.0,
+        "recall": 0.9357476635514018,
+        "f1": 0.9668074834037417,
+        "support": 856
+      }
+    },
+    "confusion": {
+      "labels": [
+        "snore",
+        "talk",
+        "movement",
+        "ambient",
+        "unknown"
+      ],
+      "matrix": [
+        [
+          71,
+          0,
+          0,
+          0,
+          6
+        ],
+        [
+          0,
+          105,
+          0,
+          0,
+          14
+        ],
+        [
+          0,
+          0,
+          65,
+          0,
+          3
+        ],
+        [
+          0,
+          1,
+          10,
+          801,
+          44
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "test": {
+    "split": "test",
+    "rows": 1120,
+    "coverage": 0.9446428571428571,
+    "unknown_rate": 0.055357142857142855,
+    "accuracy_known": 0.9896030245746692,
+    "macro_f1": 0.937807691990728,
+    "snore_precision": 0.9574468085106383,
+    "snore_recall": 0.9278350515463918,
+    "talk_to_snore_rate": 0.0,
+    "ece": 0.009643125171299338,
+    "per_class": {
+      "snore": {
+        "precision": 0.9574468085106383,
+        "recall": 0.9278350515463918,
+        "f1": 0.9424083769633508,
+        "support": 97
+      },
+      "talk": {
+        "precision": 0.9693877551020408,
+        "recall": 0.8407079646017699,
+        "f1": 0.9004739336492891,
+        "support": 113
+      },
+      "movement": {
+        "precision": 0.9594594594594594,
+        "recall": 0.9102564102564102,
+        "f1": 0.9342105263157895,
+        "support": 78
+      },
+      "ambient": {
+        "precision": 0.9987373737373737,
+        "recall": 0.9507211538461539,
+        "f1": 0.9741379310344828,
+        "support": 832
+      }
+    },
+    "confusion": {
+      "labels": [
+        "snore",
+        "talk",
+        "movement",
+        "ambient",
+        "unknown"
+      ],
+      "matrix": [
+        [
+          90,
+          0,
+          1,
+          0,
+          6
+        ],
+        [
+          0,
+          95,
+          1,
+          1,
+          16
+        ],
+        [
+          0,
+          0,
+          71,
+          0,
+          7
+        ],
+        [
+          4,
+          3,
+          1,
+          791,
+          33
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  }
+}

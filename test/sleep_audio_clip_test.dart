@@ -35,6 +35,7 @@ void main() {
       expect(SleepSoundType.talk.label, 'Разговор во сне');
       expect(SleepSoundType.movement.label, 'Шорох / движение');
       expect(SleepSoundType.ambient.label, 'Шум в комнате');
+      expect(SleepSoundType.unknown.label, 'Неопределённо');
     });
 
     test('confidence переживает JSON-сериализацию', () {
@@ -59,7 +60,54 @@ void main() {
         'peakDecibels': -20,
         'soundType': 'talk',
       };
-      expect(SleepAudioClip.fromJson(json).confidence, isNull);
+      final restored = SleepAudioClip.fromJson(json);
+      expect(restored.confidence, isNull);
+      expect(restored.segments, isEmpty);
+      expect(restored.probabilities, isEmpty);
+    });
+
+    test('неизвестный soundType читается как unknown', () {
+      final json = <String, dynamic>{
+        'id': 'a',
+        'filePath': 'a.wav',
+        'timestamp': '2026-01-01T00:00:00.000',
+        'durationSeconds': 5,
+        'peakDecibels': -20,
+        'soundType': 'cough',
+      };
+      expect(SleepAudioClip.fromJson(json).soundType, SleepSoundType.unknown);
+    });
+
+    test('сегменты и вероятности переживают JSON', () {
+      final clip = SleepAudioClip(
+        id: 'a',
+        filePath: 'a.wav',
+        timestamp: DateTime(2026, 1, 1),
+        durationSeconds: 5,
+        peakDecibels: -20,
+        soundType: SleepSoundType.snore,
+        confidence: 0.9,
+        segments: const [
+          AudioSegment(
+            startMs: 0,
+            endMs: 1200,
+            type: SleepSoundType.snore,
+            confidence: 0.91,
+          ),
+        ],
+        probabilities: const {
+          'snore': 0.91,
+          'talk': 0.02,
+          'movement': 0.03,
+          'ambient': 0.04,
+        },
+      );
+      final restored = SleepAudioClip.fromJson(clip.toJson());
+      expect(restored.segments, hasLength(1));
+      expect(restored.segments.first.type, SleepSoundType.snore);
+      expect(restored.segments.first.startMs, 0);
+      expect(restored.segments.first.endMs, 1200);
+      expect(restored.probabilities['snore'], 0.91);
     });
   });
 }

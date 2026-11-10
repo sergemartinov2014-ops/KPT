@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/sleep_audio_clip.dart';
+import '../models/sleep_audio_event.dart';
 import 'audio_event_classifier.dart';
 
 /// Ночной монитор звуков сна.
@@ -24,6 +25,7 @@ import 'audio_event_classifier.dart';
 /// без какого-либо дополнительного перекодирования.
 class SleepAudioRecorderService {
   static const String _prefsKey = 'saved_sleep_audio_clips';
+  static const String _eventsKey = 'saved_sleep_audio_events';
   static const String _configDelayKey = 'sleep_audio_delay_minutes';
   static const String _configThresholdKey = 'sleep_audio_threshold_db';
 
@@ -34,7 +36,13 @@ class SleepAudioRecorderService {
   static const int _wavHeaderSize = 44;
   static const int _preRollSeconds = 2;
   static const int _retentionDays = 7;
+  static const int _eventRetentionDays = 30;
+  static const int _maxEvents = 5000;
   static const int _maxStorageBytes = 250 * 1024 * 1024; // ~250 МБ
+
+  /// Окно оценки шумового пола и его перцентиль (спецификация v2).
+  static const int _floorWindowSeconds = 60;
+  static const double _floorPercentile = 0.10;
 
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
@@ -55,6 +63,11 @@ class SleepAudioRecorderService {
   bool _isRecordingClip = false;
   double _currentDb = -100.0;
   String? _lastError;
+
+  /// Адаптивный шумовой пол: 10-й перцентиль уровня чанков за ~60 с.
+  double _noiseFloorDb = -60.0;
+  final List<_LevelSample> _levelHistory = <_LevelSample>[];
+  DateTime _lastFloorUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
   DateTime? _clipStartTime;
   double _currentClipPeakDb = -100.0;
@@ -79,6 +92,7 @@ class SleepAudioRecorderService {
   DateTime _lastLevelNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
   final List<SleepAudioClip> _clips = [];
+  final List<SleepAudioEvent> _events = [];
   String? _playingClipId;
 
   // Callback для уведомления UI
@@ -90,8 +104,21 @@ class SleepAudioRecorderService {
   double get currentDb => _currentDb;
   int get sessionClipCount => _sessionClipCount;
   List<SleepAudioClip> get clips => List.unmodifiable(_clips);
+  List<SleepAudioEvent> get events => List.unmodifiable(_events);
   String? get playingClipId => _playingClipId;
   AudioPlayer get player => _player;
+
+  /// Текущая оценка шумового пола, dBFS.
+  double get noiseFloorDb => _noiseFloorDb;
+
+  /// Фактический порог старта: настраиваемая чувствительность (не ниже
+  /// абсолютной границы) и шумовой пол + 10 дБ.
+  double get triggerThresholdDb =>
+      math.max(startThresholdDb, _noiseFloorDb + 10.0);
+
+  /// Фактический порог удержания: пол + 6 дБ, но не выше старта − 4 дБ.
+  double get holdThresholdDb =>
+      math.max(startThresholdDb - 4.0, _noiseFloorDb + 6.0);
 
   /// Текст последней ошибки (микрофон/файл/воспроизведение) для UI.
   String? get lastError => _lastError;
@@ -137,6 +164,24 @@ class SleepAudioRecorderService {
       }
     }
 
+    final rawEvents = prefs.getString(_eventsKey);
+    if (rawEvents != null) {
+      try {
+        final List<dynamic> list = jsonDecode(rawEvents) as List<dynamic>;
+        _events
+          ..clear()
+          ..addAll(
+            list.map(
+              (item) => SleepAudioEvent.fromJson(item as Map<String, dynamic>),
+            ),
+          );
+        _trimEvents();
+        _events.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      } catch (e) {
+        debugPrint('Error loading sleep events: $e');
+      }
+    }
+
     try {
       await _enforceRetention();
       await _cleanupOrphanFiles();
@@ -164,6 +209,21 @@ class SleepAudioRecorderService {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _clips.map((c) => c.toJson()).toList();
     await prefs.setString(_prefsKey, jsonEncode(jsonList));
+  }
+
+  Future<void> _saveEventsToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _events.map((e) => e.toJson()).toList();
+    await prefs.setString(_eventsKey, jsonEncode(jsonList));
+  }
+
+  void _trimEvents() {
+    final cutoff =
+        DateTime.now().subtract(const Duration(days: _eventRetentionDays));
+    _events.removeWhere((event) => event.timestamp.isBefore(cutoff));
+    if (_events.length > _maxEvents) {
+      _events.removeRange(_maxEvents, _events.length);
+    }
   }
 
   Future<bool> hasPermission() async {
@@ -225,20 +285,50 @@ class SleepAudioRecorderService {
     _pcmSubscription?.cancel();
     _preRoll.clear();
     _preRollBytes = 0;
+    _levelHistory.clear();
+    _noiseFloorDb = -60.0;
+    _lastFloorUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
     try {
-      final stream = await _recorder.startStream(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: _sampleRate,
-          numChannels: _channels,
-          autoGain: false,
-          echoCancel: false,
-          noiseSuppress: false,
-          // Не останавливать ночной монитор при системных уведомлениях.
-          audioInterruption: AudioInterruptionMode.none,
+      // Измерительный тракт: без AGC, шумоподавления и эхоподавления.
+      // iOS: mode=measurement; Android: AudioSource.UNPROCESSED.
+      final session = await AudioSession.instance;
+      await session.configure(
+        const AudioSessionConfiguration.speech().copyWith(
+          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+          avAudioSessionMode: AVAudioSessionMode.measurement,
         ),
       );
+      await session.setActive(true);
+
+      const baseConfig = RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
+        sampleRate: _sampleRate,
+        numChannels: _channels,
+        autoGain: false,
+        echoCancel: false,
+        noiseSuppress: false,
+        // Не останавливать ночной монитор при системных уведомлениях.
+        audioInterruption: AudioInterruptionMode.none,
+      );
+
+      Stream<Uint8List> stream;
+      try {
+        stream = await _recorder.startStream(
+          baseConfig.copyWith(
+            androidConfig: const AndroidRecordConfig(
+              audioSource: AndroidAudioSource.unprocessed,
+            ),
+          ),
+        );
+      } catch (e) {
+        // UNPROCESSED доступен не на всех устройствах/версиях Android.
+        debugPrint('Unprocessed audio source unavailable, fallback: $e');
+        try {
+          if (await _recorder.isRecording()) await _recorder.stop();
+        } catch (_) {}
+        stream = await _recorder.startStream(baseConfig);
+      }
 
       _pcmSubscription = stream.listen(
         _onPcmChunk,
@@ -269,6 +359,7 @@ class SleepAudioRecorderService {
     _currentDb = level;
 
     final now = DateTime.now();
+    _updateNoiseFloor(now, level);
     if (now.hour != _currentHour) {
       _currentHour = now.hour;
       _hourlyClipCount = 0;
@@ -280,7 +371,7 @@ class SleepAudioRecorderService {
         _currentClipPeakDb = level;
       }
 
-      if (level >= prolongThresholdDb) {
+      if (level >= holdThresholdDb) {
         _armSilenceTimer();
       }
 
@@ -293,7 +384,7 @@ class SleepAudioRecorderService {
       return;
     }
 
-    if (level >= startThresholdDb && _canStartClip()) {
+    if (level >= triggerThresholdDb) {
       _startClipRecording(chunk);
     } else {
       _addToPreRoll(chunk);
@@ -311,7 +402,35 @@ class SleepAudioRecorderService {
     onStateChanged?.call();
   }
 
-  bool _canStartClip() {
+  /// Оценка шумового пола по тихим чанкам скользящего окна ~60 с.
+  ///
+  /// Перцентиль устойчив к редким событиям, поэтому отдельная фильтрация
+  /// «только тихих кадров» не нужна. Вниз пол идёт быстрее, вверх — медленно:
+  /// так храп не поднимает порог и не маскирует следующие события.
+  void _updateNoiseFloor(DateTime now, double level) {
+    _levelHistory.add(_LevelSample(now, level));
+    final cutoff = now.subtract(const Duration(seconds: _floorWindowSeconds));
+    while (
+        _levelHistory.isNotEmpty && _levelHistory.first.time.isBefore(cutoff)) {
+      _levelHistory.removeAt(0);
+    }
+    if (now.difference(_lastFloorUpdate).inMilliseconds < 1000) return;
+    _lastFloorUpdate = now;
+    if (_levelHistory.length < 5) return;
+
+    final List<double> values =
+        _levelHistory.map((sample) => sample.db).toList()..sort();
+    final int index = (_floorPercentile * (values.length - 1))
+        .floor()
+        .clamp(0, values.length - 1);
+    final double percentile = values[index];
+    final double next = percentile < _noiseFloorDb
+        ? _noiseFloorDb * 0.5 + percentile * 0.5
+        : _noiseFloorDb * 0.9 + percentile * 0.1;
+    _noiseFloorDb = next.clamp(-100.0, -10.0);
+  }
+
+  bool _canSaveClip() {
     if (_sessionClipCount >= maxClipsPerSession) {
       debugPrint('Max session clips limit reached ($maxClipsPerSession)');
       return false;
@@ -349,8 +468,7 @@ class SleepAudioRecorderService {
     final preRollMs =
         ((_preRollBytes / (_sampleRate * _channels * _bytesPerSample)) * 1000)
             .round();
-    _clipStartTime =
-        DateTime.now().subtract(Duration(milliseconds: preRollMs));
+    _clipStartTime = DateTime.now().subtract(Duration(milliseconds: preRollMs));
 
     for (final chunk in _preRoll) {
       _clipBuffer!.add(chunk);
@@ -393,52 +511,105 @@ class SleepAudioRecorderService {
     final buffer = _clipBuffer;
     final startTime = _clipStartTime ?? DateTime.now();
     final peakDb = _currentClipPeakDb;
-    final durationSeconds = _clipDurationSeconds;
+    final windowSeconds = _clipDurationSeconds;
 
     _isRecordingClip = false;
     _clipStartTime = null;
     _clipBuffer = null;
     _clipBytes = 0;
 
-    if (buffer == null || durationSeconds < minDurationSeconds) {
+    if (buffer == null) {
+      onStateChanged?.call();
+      return;
+    }
+    final pcm = buffer.takeBytes();
+    if (pcm.isEmpty) {
       onStateChanged?.call();
       return;
     }
 
-    final pcm = buffer.takeBytes();
-    final roundedDuration = durationSeconds.round().clamp(1, maxDurationSeconds);
-
+    AudioClassification? classification;
     try {
-      final recordsDir = await _getRecordsDirectory();
-      final fileName =
-          'sleep_clip_${startTime.millisecondsSinceEpoch}.wav';
-      final file = File('${recordsDir.path}${Platform.pathSeparator}$fileName');
-      await _writeWavFile(file, pcm);
-
-      final classification = await AudioEventClassifier.classifyAsync(
+      classification = await AudioEventClassifier.classifyAsync(
         pcm,
         sampleRate: _sampleRate,
       );
-
-      final clip = SleepAudioClip(
-        id: _uuid.v4(),
-        filePath: fileName,
-        timestamp: startTime,
-        durationSeconds: roundedDuration,
-        peakDecibels: peakDb,
-        soundType: classification.type,
-        confidence: classification.confidence,
-      );
-
-      _clips.insert(0, clip);
-      _sessionClipCount++;
-      _hourlyClipCount++;
-      await _saveClipsToPrefs();
-      await _enforceRetention();
-      _lastError = null;
     } catch (e) {
-      debugPrint('Error saving sleep clip: $e');
-      _lastError = 'Не удалось сохранить фрагмент записи: $e';
+      debugPrint('Error classifying sleep event: $e');
+      _lastError = 'Не удалось классифицировать событие: $e';
+    }
+
+    // «Минимальная длительность» считается по активной части, а не по
+    // всему окну с пред-записью и хвостом.
+    final activeMs = classification?.features.activeDurationMs ??
+        (windowSeconds * 1000).round();
+    if (activeMs < 200) {
+      onStateChanged?.call();
+      return;
+    }
+
+    final SleepSoundType type = classification?.type ?? SleepSoundType.unknown;
+    final double confidence = classification?.confidence ?? 0;
+    final AudioFeatures features =
+        classification?.features ?? AudioFeatures.empty;
+
+    String? savedClipId;
+    if (classification != null &&
+        activeMs >= minDurationSeconds * 1000 &&
+        _canSaveClip()) {
+      try {
+        final recordsDir = await _getRecordsDirectory();
+        final fileName = 'sleep_clip_${startTime.millisecondsSinceEpoch}.wav';
+        final file =
+            File('${recordsDir.path}${Platform.pathSeparator}$fileName');
+        await _writeWavFile(file, pcm);
+
+        final clip = SleepAudioClip(
+          id: _uuid.v4(),
+          filePath: fileName,
+          timestamp: startTime,
+          durationSeconds: windowSeconds.round().clamp(1, maxDurationSeconds),
+          peakDecibels: peakDb,
+          soundType: type,
+          confidence: confidence,
+          segments: classification.segments,
+          probabilities: <String, double>{
+            for (final entry in classification.probabilities.entries)
+              entry.key.name: entry.value,
+          },
+        );
+
+        _clips.insert(0, clip);
+        _sessionClipCount++;
+        _hourlyClipCount++;
+        savedClipId = clip.id;
+        await _saveClipsToPrefs();
+        await _enforceRetention();
+        _lastError = null;
+      } catch (e) {
+        debugPrint('Error saving sleep clip: $e');
+        _lastError = 'Не удалось сохранить фрагмент записи: $e';
+      }
+    }
+
+    // Событие пишется всегда, даже когда WAV не сохранён из-за лимитов.
+    final event = SleepAudioEvent(
+      id: _uuid.v4(),
+      timestamp: startTime,
+      durationMs: activeMs,
+      soundType: type,
+      confidence: confidence,
+      peakDecibels: peakDb,
+      noiseFloorDb: features.noiseFloorDb,
+      snrDb: features.snrDb,
+      savedClipId: savedClipId,
+    );
+    _events.insert(0, event);
+    _trimEvents();
+    try {
+      await _saveEventsToPrefs();
+    } catch (e) {
+      debugPrint('Error saving sleep event: $e');
     }
 
     onStateChanged?.call();
@@ -524,6 +695,8 @@ class SleepAudioRecorderService {
     _currentDb = -100.0;
     _preRoll.clear();
     _preRollBytes = 0;
+    _levelHistory.clear();
+    _noiseFloorDb = -60.0;
     onStateChanged?.call();
   }
 
@@ -611,7 +784,9 @@ class SleepAudioRecorderService {
       await _deleteClipFile(clip);
     }
     _clips.clear();
+    _events.clear();
     await _saveClipsToPrefs();
+    await _saveEventsToPrefs();
     await _cleanupOrphanFiles();
     onStateChanged?.call();
   }
@@ -629,7 +804,8 @@ class SleepAudioRecorderService {
 
   /// Ограничение хранения: 7 дней и ~250 МБ.
   Future<void> _enforceRetention() async {
-    final cutoff = DateTime.now().subtract(const Duration(days: _retentionDays));
+    final cutoff =
+        DateTime.now().subtract(const Duration(days: _retentionDays));
 
     final kept = <SleepAudioClip>[];
     final removed = <SleepAudioClip>[];
@@ -710,4 +886,11 @@ class SleepAudioRecorderService {
     _recorder.dispose();
     _player.dispose();
   }
+}
+
+class _LevelSample {
+  final DateTime time;
+  final double db;
+
+  const _LevelSample(this.time, this.db);
 }

@@ -4,7 +4,8 @@ enum SleepSoundType {
   snore,
   talk,
   movement,
-  ambient;
+  ambient,
+  unknown;
 
   String get label {
     switch (this) {
@@ -16,8 +17,46 @@ enum SleepSoundType {
         return 'Шорох / движение';
       case SleepSoundType.ambient:
         return 'Шум в комнате';
+      case SleepSoundType.unknown:
+        return 'Неопределённо';
     }
   }
+}
+
+/// Размеченная часть клипа: интервал и предсказанный класс.
+class AudioSegment {
+  final int startMs;
+  final int endMs;
+  final SleepSoundType type;
+  final double confidence;
+
+  const AudioSegment({
+    required this.startMs,
+    required this.endMs,
+    required this.type,
+    required this.confidence,
+  });
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'startMs': startMs,
+        'endMs': endMs,
+        'type': type.name,
+        'confidence': confidence,
+      };
+
+  factory AudioSegment.fromJson(Map<String, dynamic> json) => AudioSegment(
+        startMs: (json['startMs'] as num).toInt(),
+        endMs: (json['endMs'] as num).toInt(),
+        type: SleepSoundType.values.firstWhere(
+          (value) => value.name == json['type'],
+          orElse: () => SleepSoundType.unknown,
+        ),
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      );
+
+  @override
+  String toString() => 'AudioSegment($startMs..$endMs ms, ${type.name}, '
+      '${(confidence * 100).toStringAsFixed(0)}%)';
 }
 
 class SleepAudioClip {
@@ -39,6 +78,13 @@ class SleepAudioClip {
   /// появления DSP-классификатора.
   final double? confidence;
 
+  /// Сегменты внутри клипа со смешанным содержимым (v2).
+  final List<AudioSegment> segments;
+
+  /// Калиброванные вероятности классов (v2), ключи — имена
+  /// [SleepSoundType]. Пустая карта у записей v1.
+  final Map<String, double> probabilities;
+
   const SleepAudioClip({
     required this.id,
     required this.filePath,
@@ -47,6 +93,8 @@ class SleepAudioClip {
     required this.peakDecibels,
     required this.soundType,
     this.confidence,
+    this.segments = const <AudioSegment>[],
+    this.probabilities = const <String, double>{},
   });
 
   /// Только имя файла — без каталога.
@@ -69,6 +117,8 @@ class SleepAudioClip {
     double? peakDecibels,
     SleepSoundType? soundType,
     double? confidence,
+    List<AudioSegment>? segments,
+    Map<String, double>? probabilities,
   }) {
     return SleepAudioClip(
       id: id ?? this.id,
@@ -78,6 +128,8 @@ class SleepAudioClip {
       peakDecibels: peakDecibels ?? this.peakDecibels,
       soundType: soundType ?? this.soundType,
       confidence: confidence ?? this.confidence,
+      segments: segments ?? this.segments,
+      probabilities: probabilities ?? this.probabilities,
     );
   }
 
@@ -89,6 +141,9 @@ class SleepAudioClip {
         'peakDecibels': peakDecibels,
         'soundType': soundType.name,
         if (confidence != null) 'confidence': confidence,
+        if (segments.isNotEmpty)
+          'segments': segments.map((segment) => segment.toJson()).toList(),
+        if (probabilities.isNotEmpty) 'probabilities': probabilities,
       };
 
   factory SleepAudioClip.fromJson(Map<String, dynamic> json) => SleepAudioClip(
@@ -99,8 +154,17 @@ class SleepAudioClip {
         peakDecibels: (json['peakDecibels'] as num).toDouble(),
         soundType: SleepSoundType.values.firstWhere(
           (e) => e.name == json['soundType'],
-          orElse: () => SleepSoundType.snore,
+          orElse: () => SleepSoundType.unknown,
         ),
         confidence: (json['confidence'] as num?)?.toDouble(),
+        segments: (json['segments'] as List<dynamic>?)
+                ?.map((item) =>
+                    AudioSegment.fromJson(item as Map<String, dynamic>))
+                .toList() ??
+            const <AudioSegment>[],
+        probabilities: (json['probabilities'] as Map<String, dynamic>?)?.map(
+              (key, value) => MapEntry(key, (value as num).toDouble()),
+            ) ??
+            const <String, double>{},
       );
 }

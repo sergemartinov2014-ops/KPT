@@ -49,3 +49,12 @@ app.*.map.json
 
 # Superpowers / AI tool scratch
 .superpowers/
+
+# Somnia audio research: external audio and generated datasets
+__pycache__/
+tools/somnia_audio/data/external/
+tools/somnia_audio/data/demo/
+tools/somnia_audio/data/v1_test/
+tools/somnia_audio/data/synth/
+tools/somnia_audio/data/*.npz
+tools/somnia_audio/data/*.wav

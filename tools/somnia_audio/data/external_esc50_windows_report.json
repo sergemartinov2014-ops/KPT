@@ -1,0 +1,113 @@
+{
+  "model": "assets/models/sleep_audio_v2.json",
+  "dataset": "external WAV files",
+  "warning": "External clips only. Not labelled sleep recordings and not a benchmark. Numbers do not estimate real-world accuracy.",
+  "unknown_threshold": 0.8100000000000005,
+  "temperature": 1.0800000000000007,
+  "window_s": 1.0,
+  "hop_s": 0.5,
+  "rows": 720,
+  "supervised_rows": 360,
+  "unmapped_labels": [
+    "breathing"
+  ],
+  "metrics": {
+    "rows": 360,
+    "coverage": 0.7277777777777777,
+    "unknown_rate": 0.2722222222222222,
+    "accuracy_known": 0.04580152671755725,
+    "macro_f1": 0.016129032258064516,
+    "snore_precision": 1.0,
+    "snore_recall": 0.03333333333333333,
+    "talk_to_snore_rate": 0.0,
+    "ece": 0.8490760062167622,
+    "per_class": {
+      "snore": {
+        "precision": 1.0,
+        "recall": 0.03333333333333333,
+        "f1": 0.06451612903225806,
+        "support": 360
+      },
+      "talk": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "movement": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "ambient": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    },
+    "confusion": {
+      "labels": [
+        "snore",
+        "talk",
+        "movement",
+        "ambient",
+        "unknown"
+      ],
+      "matrix": [
+        [
+          12,
+          14,
+          98,
+          138,
+          98
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "prediction_counts": {
+    "breathing": {
+      "movement": 26,
+      "talk": 133,
+      "unknown": 87,
+      "snore": 10,
+      "ambient": 104
+    },
+    "snore": {
+      "movement": 98,
+      "ambient": 138,
+      "unknown": 98,
+      "snore": 12,
+      "talk": 14
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "model": "assets/models/sleep_audio_v2.json",
+  "dataset": "external WAV files",
+  "warning": "External clips only. Not labelled sleep recordings and not a benchmark. Numbers do not estimate real-world accuracy.",
+  "unknown_threshold": 0.8100000000000005,
+  "temperature": 1.0800000000000007,
+  "window_s": null,
+  "hop_s": null,
+  "rows": 40,
+  "supervised_rows": 40,
+  "unmapped_labels": [],
+  "metrics": {
+    "rows": 40,
+    "coverage": 0.8,
+    "unknown_rate": 0.2,
+    "accuracy_known": 0.03125,
+    "macro_f1": 0.012195121951219514,
+    "snore_precision": 1.0,
+    "snore_recall": 0.025,
+    "talk_to_snore_rate": 0.0,
+    "ece": 0.8435611021669744,
+    "per_class": {
+      "snore": {
+        "precision": 1.0,
+        "recall": 0.025,
+        "f1": 0.04878048780487806,
+        "support": 40
+      },
+      "talk": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "movement": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "ambient": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    },
+    "confusion": {
+      "labels": [
+        "snore",
+        "talk",
+        "movement",
+        "ambient",
+        "unknown"
+      ],
+      "matrix": [
+        [
+          1,
+          7,
+          19,
+          5,
+          8
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "prediction_counts": {
+    "snore": {
+      "movement": 19,
+      "unknown": 8,
+      "talk": 7,
+      "ambient": 5,
+      "snore": 1
+    }
+  }
+}
