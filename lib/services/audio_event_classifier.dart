@@ -3,420 +3,320 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../models/sleep_audio_clip.dart';
+import 'sleep_audio_model.dart';
 
-/// Акустические признаки фрагмента, посчитанные по PCM 16-бит моно.
+/// Acoustic description of a night-sound event.
+///
+/// All spectral values are computed on *active* frames only: the recorder's
+/// 2 s pre-roll and 3 s tail are excluded.  That was the central defect of
+/// classifier v1.
 class AudioFeatures {
-  /// Длительность фрагмента, мс.
   final int durationMs;
-
-  /// Доля кадров выше адаптивного шумового порога (0…1).
+  final int activeDurationMs;
   final double activeRatio;
-
-  /// Средний RMS по всему фрагменту, dBFS.
   final double rmsDb;
-
-  /// Пиковый уровень, dBFS.
   final double peakDb;
-
-  /// Средняя доля переходов через ноль на сэмпл.
+  final double noiseFloorDb;
+  final double snrDb;
   final double zcr;
-
-  /// Спектральный центроид, Гц.
   final double centroidHz;
-
-  /// Спектральная плоскостность (0 — тон, 1 — белый шум).
+  final double centroidIqrHz;
+  final double rolloffHz;
+  final double spectralSlopeDbPerKhz;
   final double flatness;
-
-  /// Нормированная спектральная изменчивость между кадрами.
+  final double flatnessIqr;
   final double flux;
-
-  /// Сила периодичности по автокорреляции (0…1).
-  final double pitchStrength;
-
-  /// Основной тон, Гц.
+  final List<double> bandRatios;
+  final double voicing;
+  final double voicedFrameRatio;
   final double f0Hz;
-
-  /// Доля энергии 40–400 Гц.
-  final double lowRatio;
-
-  /// Доля энергии 400–3000 Гц.
-  final double midRatio;
-
-  /// Доля энергии 3000–8000 Гц.
-  final double highRatio;
-
-  /// Глубина/регулярность модуляции огибающей (0…1).
-  final double envelopeModulation;
-
-  /// Частота модуляции огибающей, Гц.
-  final double syllableRateHz;
-
-  /// Стабильность основного тона (0…1).
-  final double tonalStability;
+  final double f0StdSemitones;
+  final double modulationSyllable;
+  final double modulationBreath;
+  final bool modulationBreathValid;
+  final double modulationPeakHz;
+  final double onsetRate;
+  final double segmentDurationMedianMs;
+  final double segmentDurationIqrMs;
+  final double gapCv;
+  final double crestFactor;
+  final double envelopeKurtosis;
+  final double shortBroadbandRatio;
+  final int activeStartMs;
+  final int activeEndMs;
 
   const AudioFeatures({
     required this.durationMs,
+    required this.activeDurationMs,
     required this.activeRatio,
     required this.rmsDb,
     required this.peakDb,
+    required this.noiseFloorDb,
+    required this.snrDb,
     required this.zcr,
     required this.centroidHz,
+    required this.centroidIqrHz,
+    required this.rolloffHz,
+    required this.spectralSlopeDbPerKhz,
     required this.flatness,
+    required this.flatnessIqr,
     required this.flux,
-    required this.pitchStrength,
+    required this.bandRatios,
+    required this.voicing,
+    required this.voicedFrameRatio,
     required this.f0Hz,
-    required this.lowRatio,
-    required this.midRatio,
-    required this.highRatio,
-    required this.envelopeModulation,
-    required this.syllableRateHz,
-    required this.tonalStability,
+    required this.f0StdSemitones,
+    required this.modulationSyllable,
+    required this.modulationBreath,
+    required this.modulationBreathValid,
+    required this.modulationPeakHz,
+    required this.onsetRate,
+    required this.segmentDurationMedianMs,
+    required this.segmentDurationIqrMs,
+    required this.gapCv,
+    required this.crestFactor,
+    required this.envelopeKurtosis,
+    required this.shortBroadbandRatio,
+    required this.activeStartMs,
+    required this.activeEndMs,
   });
+
+  /// Compatibility getter for v1 callers/tests.
+  double get pitchStrength => voicing;
+
+  /// Fraction of energy below 400 Hz (diagnostic only, not a classifier rule).
+  double get lowRatio => bandRatios[0] + bandRatios[1];
 
   static const AudioFeatures empty = AudioFeatures(
     durationMs: 0,
+    activeDurationMs: 0,
     activeRatio: 0,
     rmsDb: -100,
     peakDb: -100,
+    noiseFloorDb: -100,
+    snrDb: 0,
     zcr: 0,
     centroidHz: 0,
+    centroidIqrHz: 0,
+    rolloffHz: 0,
+    spectralSlopeDbPerKhz: 0,
     flatness: 0,
+    flatnessIqr: 0,
     flux: 0,
-    pitchStrength: 0,
+    bandRatios: <double>[0, 0, 0, 0, 0, 0],
+    voicing: 0,
+    voicedFrameRatio: 0,
     f0Hz: 0,
-    lowRatio: 0,
-    midRatio: 0,
-    highRatio: 0,
-    envelopeModulation: 0,
-    syllableRateHz: 0,
-    tonalStability: 0,
+    f0StdSemitones: 0,
+    modulationSyllable: 0,
+    modulationBreath: 0,
+    modulationBreathValid: false,
+    modulationPeakHz: 0,
+    onsetRate: 0,
+    segmentDurationMedianMs: 0,
+    segmentDurationIqrMs: 0,
+    gapCv: 0,
+    crestFactor: 0,
+    envelopeKurtosis: 0,
+    shortBroadbandRatio: 0,
+    activeStartMs: 0,
+    activeEndMs: 0,
   );
+
+  /// Feature vector in [kSleepAudioFeatureNames] order.
+  ///
+  /// This order is part of the model contract.  Keep it in sync with
+  /// `tools/somnia_audio/features.py`.
+  List<double> toVector() {
+    return <double>[
+      durationMs / 1000.0,
+      activeDurationMs / 1000.0,
+      snrDb,
+      activeDurationMs / math.max(1, durationMs),
+      activeRatio,
+      onsetRate,
+      segmentDurationMedianMs,
+      segmentDurationIqrMs,
+      gapCv,
+      crestFactor,
+      envelopeKurtosis,
+      shortBroadbandRatio,
+      zcr,
+      centroidHz,
+      centroidIqrHz,
+      rolloffHz,
+      spectralSlopeDbPerKhz,
+      flatness,
+      flatnessIqr,
+      flux,
+      bandRatios[0],
+      bandRatios[1],
+      bandRatios[2],
+      bandRatios[3],
+      bandRatios[4],
+      bandRatios[5],
+      voicing,
+      voicedFrameRatio,
+      f0Hz,
+      f0StdSemitones,
+      modulationSyllable,
+      modulationBreath,
+      modulationBreathValid ? 1.0 : 0.0,
+      modulationPeakHz,
+    ];
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        for (var i = 0; i < kSleepAudioFeatureNames.length; i++)
+          kSleepAudioFeatureNames[i]: toVector()[i],
+      };
 
   @override
   String toString() {
-    return 'AudioFeatures(dur=$durationMs ms, active=${activeRatio.toStringAsFixed(2)}, '
-        'rms=${rmsDb.toStringAsFixed(1)} dB, peak=${peakDb.toStringAsFixed(1)} dB, '
-        'zcr=${zcr.toStringAsFixed(3)}, centroid=${centroidHz.toStringAsFixed(0)} Hz, '
+    return 'AudioFeatures(dur=$durationMs ms, active=$activeDurationMs ms, '
+        'snr=${snrDb.toStringAsFixed(1)} dB, '
+        'centroid=${centroidHz.toStringAsFixed(0)} Hz, '
         'flat=${flatness.toStringAsFixed(3)}, flux=${flux.toStringAsFixed(3)}, '
-        'pitch=${pitchStrength.toStringAsFixed(2)} @ ${f0Hz.toStringAsFixed(0)} Hz, '
-        'low=${lowRatio.toStringAsFixed(2)}, mid=${midRatio.toStringAsFixed(2)}, '
-        'high=${highRatio.toStringAsFixed(2)}, mod=${envelopeModulation.toStringAsFixed(2)} '
-        '@ ${syllableRateHz.toStringAsFixed(2)} Hz)';
+        'voicing=${voicing.toStringAsFixed(2)} @ ${f0Hz.toStringAsFixed(0)} Hz, '
+        'breath=${modulationBreath.toStringAsFixed(2)} '
+        '(valid=$modulationBreathValid), syllable=${modulationSyllable.toStringAsFixed(2)})';
   }
 }
 
-/// Результат классификации события сна.
+/// A contiguous part of a clip with one predicted class.
+///
+/// [AudioSegment] itself lives in `sleep_audio_clip.dart` so clips can
+/// persist segments without importing the classifier.
+
+/// Result of a classification run.
 class AudioClassification {
   final SleepSoundType type;
 
-  /// Уверенность 0…1: доля лучшей оценки в сумме всех оценок.
+  /// Calibrated top-1 probability (0…1).
   final double confidence;
 
   final AudioFeatures features;
+
+  /// Calibrated probabilities for the four acoustic classes.
+  final Map<SleepSoundType, double> probabilities;
+
+  /// Per-second segments inside a mixed clip.
+  final List<AudioSegment> segments;
 
   const AudioClassification({
     required this.type,
     required this.confidence,
     required this.features,
+    this.probabilities = const <SleepSoundType, double>{},
+    this.segments = const <AudioSegment>[],
   });
 
   @override
   String toString() {
     return 'AudioClassification(${type.name}, '
-        '${(confidence * 100).toStringAsFixed(0)}%) $features';
+        '${(confidence * 100).toStringAsFixed(0)}%, '
+        '${segments.length} segments) $features';
   }
 }
 
-/// Анализ ночных звуков: признаки сигнала и классификация события.
+/// Night-sound analysis: segmentation, features and a calibrated classifier.
+///
+/// Feature extraction is a direct port of `tools/somnia_audio/features.py`.
+/// The model is a multinomial logistic regression exported to Dart, so the
+/// classifier is fully offline and needs no native dependency.
 class AudioEventClassifier {
-  static const int frameSize = 512;
-  static const int hopSize = 256;
+  static const int frameSize = 400; // 25 ms at 16 kHz
+  static const int hopSize = 160; // 10 ms
+  static const int fftSize = 512;
+  static const int _acfDecimation = 4;
+  static const int _acfWindow = 640; // 40 ms
+  static const int _acfMinLag = 10;
+  static const int _acfMaxLag = 57;
 
   static const double _eps = 1e-12;
   static const double _minDb = -100.0;
 
-  /// Считает признаки по PCM16LE моно.
+  static final Float64List _hann400 = _hann(frameSize);
+  static final Float64List _cosTable = _cosTableFor(fftSize);
+  static final Float64List _sinTable = _sinTableFor(fftSize);
+  static final List<int> _bitReverse = _bitReverseTable(fftSize);
+
+  /// Counts features over the whole clip (active frames only).
   static AudioFeatures analyzeFeatures(
     Uint8List pcm, {
     int sampleRate = 16000,
   }) {
-    final int sampleCount = pcm.length ~/ 2;
-    if (sampleCount < 32 || sampleRate <= 0) return AudioFeatures.empty;
-
-    final Int16List samples = Int16List(sampleCount);
-    final ByteData bytes = ByteData.sublistView(pcm);
-    for (var i = 0; i < sampleCount; i++) {
-      samples[i] = bytes.getInt16(i * 2, Endian.little);
-    }
-
-    final int durationMs = (sampleCount * 1000 / sampleRate).round();
-    final int frameCount = sampleCount <= frameSize
-        ? 1
-        : 1 + (sampleCount - frameSize) ~/ hopSize;
-
-    final Float64List frameDb = Float64List(frameCount);
-    final Float64List frameZcr = Float64List(frameCount);
-    final Float64List frameCentroid = Float64List(frameCount);
-    final Float64List frameFlatness = Float64List(frameCount);
-    final Float64List frameFlux = Float64List(frameCount);
-    final Float64List framePitch = Float64List(frameCount);
-    final Float64List frameF0 = Float64List(frameCount);
-    final Float64List frameLow = Float64List(frameCount);
-    final Float64List frameMid = Float64List(frameCount);
-    final Float64List frameHigh = Float64List(frameCount);
-    final Float64List envelope = Float64List(frameCount);
-
-    final Float64List hann = _hannWindow(frameSize);
-    final List<double> re = List<double>.filled(frameSize, 0);
-    final List<double> im = List<double>.filled(frameSize, 0);
-    List<double> prevMagnitudes = List<double>.filled(frameSize ~/ 2, 0);
-
-    double peak = 0;
-    for (var i = 0; i < sampleCount; i++) {
-      final v = samples[i].abs() / 32768.0;
-      if (v > peak) peak = v;
-    }
-
-    final int minLag = math.max(1, sampleRate ~/ 320);
-    final int maxLag = math.min(sampleRate ~/ 40, frameSize - 1);
-
-    for (var f = 0; f < frameCount; f++) {
-      final int start = f * hopSize;
-      final double sumSquares = _fillFrame(samples, start, re, hann);
-      final double frameRms = math.sqrt(sumSquares / frameSize);
-      frameDb[f] = _linearToDb(frameRms);
-      envelope[f] = frameRms;
-
-      frameZcr[f] = _zeroCrossingRate(samples, start);
-      final _PitchResult pitch = _estimatePitch(
-        samples,
-        start,
-        minLag,
-        maxLag,
-        sampleRate,
-      );
-      framePitch[f] = pitch.strength;
-      frameF0[f] = pitch.f0;
-
-      im.fillRange(0, frameSize, 0.0);
-      _fft(re, im);
-
-      final _Spectrum spectrum = _spectrumStats(
-        re,
-        im,
-        sampleRate,
-        prevMagnitudes,
-        frameSize ~/ 2,
-      );
-      frameCentroid[f] = spectrum.centroid;
-      frameFlatness[f] = spectrum.flatness;
-      frameFlux[f] = spectrum.flux;
-      frameLow[f] = spectrum.low;
-      frameMid[f] = spectrum.mid;
-      frameHigh[f] = spectrum.high;
-      prevMagnitudes = spectrum.magnitudes;
-    }
-
-    // Адаптивный шумовой порог: медиана кадров + 6 дБ, но не выше -70 dB.
-    final Float64List sortedDb = Float64List.fromList(frameDb)..sort();
-    final double medianDb = sortedDb[sortedDb.length ~/ 2];
-    final double threshold = math.min(medianDb + 6.0, -70.0);
-
-    final List<int> active = <int>[];
-    for (var f = 0; f < frameCount; f++) {
-      if (frameDb[f] > threshold) active.add(f);
-    }
-
-    double overallRms;
-    double sumSquaresAll = 0;
-    for (var i = 0; i < sampleCount; i++) {
-      final v = samples[i] / 32768.0;
-      sumSquaresAll += v * v;
-    }
-    overallRms = math.sqrt(sumSquaresAll / sampleCount);
-
-    final double activeRatio = active.isEmpty ? 0.0 : active.length / frameCount;
-
-    final _Modulation modulation = _envelopeModulation(
-      envelope,
-      sampleRate,
-      hopSize,
-    );
-
-    if (active.isEmpty) {
-      return AudioFeatures(
-        durationMs: durationMs,
-        activeRatio: 0,
-        rmsDb: _linearToDb(overallRms),
-        peakDb: _linearToDb(peak),
-        zcr: 0,
-        centroidHz: 0,
-        flatness: 0,
-        flux: 0,
-        pitchStrength: 0,
-        f0Hz: 0,
-        lowRatio: 0,
-        midRatio: 0,
-        highRatio: 0,
-        envelopeModulation: modulation.depth,
-        syllableRateHz: modulation.rateHz,
-        tonalStability: 0,
-      );
-    }
-
-    double medianOf(Float64List values) {
-      final picked = Float64List(active.length);
-      for (var i = 0; i < active.length; i++) {
-        picked[i] = values[active[i]];
-      }
-      picked.sort();
-      return picked[picked.length ~/ 2];
-    }
-
-    double meanOf(Float64List values) {
-      double sum = 0;
-      for (final i in active) {
-        sum += values[i];
-      }
-      return sum / active.length;
-    }
-
-    final double low = meanOf(frameLow);
-    final double mid = meanOf(frameMid);
-    final double high = meanOf(frameHigh);
-    final double lowSum = low + mid + high + _eps;
-
-    final List<double> voicedF0 = <double>[];
-    for (final i in active) {
-      if (framePitch[i] > 0.3 && frameF0[i] > 0) voicedF0.add(frameF0[i]);
-    }
-    double tonalStability = 0;
-    if (voicedF0.length >= 3) {
-      voicedF0.sort();
-      final double median = voicedF0[voicedF0.length ~/ 2];
-      final double q1 = voicedF0[voicedF0.length ~/ 4];
-      final double q3 = voicedF0[(voicedF0.length * 3) ~/ 4];
-      if (median > 0) {
-        tonalStability = (1.0 - (q3 - q1) / median).clamp(0.0, 1.0);
-      }
-    }
-
-    return AudioFeatures(
-      durationMs: durationMs,
-      activeRatio: activeRatio,
-      rmsDb: _linearToDb(overallRms),
-      peakDb: _linearToDb(peak),
-      zcr: medianOf(frameZcr),
-      centroidHz: medianOf(frameCentroid),
-      flatness: medianOf(frameFlatness),
-      flux: meanOf(frameFlux),
-      pitchStrength: medianOf(framePitch),
-      f0Hz: medianOf(frameF0),
-      lowRatio: low / lowSum,
-      midRatio: mid / lowSum,
-      highRatio: high / lowSum,
-      envelopeModulation: modulation.depth,
-      syllableRateHz: modulation.rateHz,
-      tonalStability: tonalStability,
+    final _Analysis? analysis = _analyze(pcm, sampleRate);
+    if (analysis == null) return AudioFeatures.empty;
+    return analysis.aggregate(
+      frameStart: 0,
+      frameEnd: analysis.frameCount - 1,
+      sampleStart: 0,
+      sampleEnd: analysis.sampleCount,
+      durationMs: analysis.durationMs,
     );
   }
 
-  /// Классифицирует фрагмент по акустическим признакам.
+  /// Classifies a PCM16LE mono clip.
   static AudioClassification classify(
     Uint8List pcm, {
     int sampleRate = 16000,
-  }) {    final AudioFeatures f = analyzeFeatures(pcm, sampleRate: sampleRate);
-
-    // Тишина: уверенности нет, событие не определено.
-    if (f.activeRatio == 0 || f.peakDb < -55) {
-      return AudioClassification(
+  }) {
+    final _Analysis? analysis = _analyze(pcm, sampleRate);
+    if (analysis == null || analysis.firstActive < 0) {
+      return const AudioClassification(
         type: SleepSoundType.ambient,
         confidence: 0,
-        features: f,
+        features: AudioFeatures.empty,
+        probabilities: <SleepSoundType, double>{
+          SleepSoundType.snore: 0,
+          SleepSoundType.talk: 0,
+          SleepSoundType.movement: 0,
+          SleepSoundType.ambient: 1,
+        },
       );
     }
 
-    // Слишком короткий фрагмент не даёт спектральной картины.
-    if (f.durationMs < 400) {
-      return AudioClassification(
-        type: SleepSoundType.movement,
-        confidence: 0.5,
-        features: f,
-      );
+    final AudioFeatures features = analysis.aggregate(
+      frameStart: 0,
+      frameEnd: analysis.frameCount - 1,
+      sampleStart: 0,
+      sampleEnd: analysis.sampleCount,
+      durationMs: analysis.durationMs,
+    );
+    final List<double> probabilities = _predict(features);
+    var best = 0;
+    for (var i = 1; i < probabilities.length; i++) {
+      if (probabilities[i] > probabilities[best]) best = i;
+    }
+    final Map<SleepSoundType, double> byType = <SleepSoundType, double>{
+      for (var i = 0; i < probabilities.length; i++)
+        _typeForModelClass(kSleepAudioModelClasses[i]): probabilities[i],
+    };
+    final List<AudioSegment> segments = _buildSegments(analysis);
+    var type = _typeForModelClass(kSleepAudioModelClasses[best]);
+    var confidence = probabilities[best];
+
+    if (confidence < kSleepAudioUnknownThreshold) {
+      type = SleepSoundType.unknown;
     }
 
-    final double mod = f.envelopeModulation;
-    final double zcrNorm = (f.zcr / 0.5).clamp(0.0, 1.0);
-    final double flatNorm = (f.flatness / 0.4).clamp(0.0, 1.0);
-
-    double snore = 0.30 * f.lowRatio +
-        0.22 * f.pitchStrength +
-        0.14 * (1 - f.flatness) +
-        0.10 * (1 - zcrNorm) +
-        0.14 * mod +
-        0.10 * (1 - f.flux) -
-        0.25 * f.midRatio -
-        0.15 * f.highRatio;
-    // Храп — низкочастотный и модулированный; стационарный гул не храп.
-    if (mod < 0.2) snore *= 0.3;
-    if (f.lowRatio < 0.3) snore *= 0.4;
-    if (f.pitchStrength < 0.2) snore *= 0.5;
-
-    double talk = 0.32 * f.midRatio +
-        0.24 * mod +
-        0.16 * f.flux +
-        0.10 * f.pitchStrength +
-        0.12 * zcrNorm -
-        0.25 * f.lowRatio;
-    if (f.midRatio < 0.25) talk *= 0.4;
-    if (mod < 0.15) talk *= 0.5;
-
-    double movement = 0.30 * flatNorm +
-        0.28 * f.highRatio +
-        0.18 * f.flux +
-        0.14 * (1 - f.pitchStrength) +
-        0.10 * zcrNorm +
-        0.10 * (1 - f.tonalStability);
-    if (f.highRatio < 0.15 && f.flatness < 0.25) movement *= 0.5;
-
-    final double ambient = 0.45 * (1 - f.flux) +
-        0.25 * (1 - f.pitchStrength) +
-        0.15 * (1 - mod) +
-        0.15 * (1 - f.highRatio);
-
-    final List<double> scores = <double>[
-      snore.clamp(0.0, 1.0),
-      talk.clamp(0.0, 1.0),
-      movement.clamp(0.0, 1.0),
-      ambient.clamp(0.0, 1.0),
-    ];
-    const List<SleepSoundType> types = <SleepSoundType>[
-      SleepSoundType.snore,
-      SleepSoundType.talk,
-      SleepSoundType.movement,
-      SleepSoundType.ambient,
-    ];
-
-    var bestIndex = 0;
-    for (var i = 1; i < scores.length; i++) {
-      if (scores[i] > scores[bestIndex]) bestIndex = i;
+    // A single low-confidence snore is not confirmed; repeatability or a
+    // confident segment is required by the v2 spec.
+    if (type == SleepSoundType.snore && !_snoreConfirmed(segments)) {
+      type = SleepSoundType.unknown;
     }
-
-    final double sum = scores.fold(0.0, (a, b) => a + b);
-    final double confidence =
-        sum > 1e-9 ? (scores[bestIndex] / sum).clamp(0.0, 1.0) : 0.0;
 
     return AudioClassification(
-      type: types[bestIndex],
+      type: type,
       confidence: confidence,
-      features: f,
+      features: features,
+      probabilities: byType,
+      segments: segments,
     );
   }
 
-  /// Классифицирует фрагмент в отдельном изоляте.
-  ///
-  /// Анализ клипа до 45 с занимает сотни миллисекунд; на UI-изоляте это
-  /// заметный рывок при финализации. Изолят держит интерфейс плавным.
+  /// Runs classification in a background isolate.
   static Future<AudioClassification> classifyAsync(
     Uint8List pcm, {
     int sampleRate = 16000,
@@ -424,211 +324,887 @@ class AudioEventClassifier {
     return Isolate.run(() => classify(pcm, sampleRate: sampleRate));
   }
 
-  static double _fillFrame(
-    Int16List samples,
-    int start,
-    List<double> re,
-    Float64List hann,
-  ) {
-    double sumSquares = 0;
-    for (var i = 0; i < frameSize; i++) {
-      final int index = start + i;
-      final double v =
-          index < samples.length ? samples[index] / 32768.0 : 0.0;
-      sumSquares += v * v;
-      re[i] = v * hann[i];
+  // ------------------------------------------------------------- prediction
+
+  static List<double> _predict(AudioFeatures features) {
+    final List<double> x = features.toVector();
+    final int classCount = kSleepAudioModelClasses.length;
+    final List<double> logits = List<double>.filled(classCount, 0);
+    for (var c = 0; c < classCount; c++) {
+      var value = kSleepAudioModelIntercept[c];
+      final List<double> row = kSleepAudioModelCoefficients[c];
+      for (var i = 0; i < x.length; i++) {
+        final double normalized =
+            (x[i] - kSleepAudioModelMean[i]) / kSleepAudioModelScale[i];
+        value += row[i] * normalized;
+      }
+      logits[c] = value / kSleepAudioModelTemperature;
     }
-    return sumSquares;
+    final double maxLogit = logits.reduce(math.max);
+    double sum = 0;
+    for (final value in logits) {
+      sum += math.exp(value - maxLogit);
+    }
+    final List<double> result = List<double>.filled(classCount, 0);
+    for (var i = 0; i < classCount; i++) {
+      result[i] = math.exp(logits[i] - maxLogit) / sum;
+    }
+    return result;
   }
 
-  static Float64List _hannWindow(int size) {
+  static SleepSoundType _typeForModelClass(String name) {
+    switch (name) {
+      case 'snore':
+        return SleepSoundType.snore;
+      case 'talk':
+        return SleepSoundType.talk;
+      case 'movement':
+        return SleepSoundType.movement;
+      case 'ambient':
+      default:
+        return SleepSoundType.ambient;
+    }
+  }
+
+  static bool _snoreConfirmed(List<AudioSegment> segments) {
+    final List<AudioSegment> snores = segments
+        .where((segment) =>
+            segment.type == SleepSoundType.snore && segment.confidence >= 0.6)
+        .toList();
+    if (snores.isEmpty) return false;
+    if (snores.length >= 2) {
+      for (var i = 1; i < snores.length; i++) {
+        final int period = snores[i].startMs - snores[i - 1].startMs;
+        if (period >= 2000 && period <= 7000) return true;
+      }
+    }
+    return snores.any((segment) => segment.endMs - segment.startMs >= 500);
+  }
+
+  // ------------------------------------------------------------- segments
+
+  static List<AudioSegment> _buildSegments(_Analysis analysis) {
+    const int windowMs = 1000;
+    const int stepMs = 500;
+    final int durationMs = analysis.durationMs;
+    final List<int> starts = <int>[];
+    if (durationMs <= windowMs) {
+      starts.add(0);
+    } else {
+      for (var start = 0; start + windowMs <= durationMs; start += stepMs) {
+        starts.add(start);
+      }
+      if (starts.isEmpty) starts.add(0);
+    }
+
+    final List<List<double>> raw = <List<double>>[];
+    final List<int> ends = <int>[];
+    for (final start in starts) {
+      final int end = math.min(durationMs, start + windowMs);
+      final int sampleStart = (start * analysis.sampleRate / 1000).round();
+      final int sampleEnd = (end * analysis.sampleRate / 1000).round();
+      final int frameStart = math.max(0, (sampleStart / hopSize).floor());
+      final int frameEnd = math.min(
+        analysis.frameCount - 1,
+        math.max(frameStart, (sampleEnd - 1) ~/ hopSize),
+      );
+      final AudioFeatures windowFeatures = analysis.aggregate(
+        frameStart: frameStart,
+        frameEnd: frameEnd,
+        sampleStart: sampleStart,
+        sampleEnd: sampleEnd,
+        durationMs: end - start,
+      );
+      if (windowFeatures.activeDurationMs < 100) {
+        raw.add(<double>[0, 0, 0, 1]);
+      } else {
+        raw.add(_predict(windowFeatures));
+      }
+      ends.add(end);
+    }
+
+    // Median filter across three windows to remove one-window flicker.
+    final List<List<double>> smoothed = <List<double>>[];
+    for (var i = 0; i < raw.length; i++) {
+      final List<double> values = List<double>.filled(4, 0);
+      for (var c = 0; c < 4; c++) {
+        final List<double> neighbourhood = <double>[];
+        for (var offset = -1; offset <= 1; offset++) {
+          final int index = i + offset;
+          if (index >= 0 && index < raw.length) {
+            neighbourhood.add(raw[index][c]);
+          }
+        }
+        neighbourhood.sort();
+        values[c] = neighbourhood[neighbourhood.length ~/ 2];
+      }
+      smoothed.add(values);
+    }
+
+    final List<AudioSegment> segments = <AudioSegment>[];
+    for (var i = 0; i < smoothed.length; i++) {
+      final List<double> probabilities = smoothed[i];
+      var best = 0;
+      for (var c = 1; c < probabilities.length; c++) {
+        if (probabilities[c] > probabilities[best]) best = c;
+      }
+      final double confidence = probabilities[best];
+      final SleepSoundType type = confidence < kSleepAudioUnknownThreshold
+          ? SleepSoundType.unknown
+          : _typeForModelClass(kSleepAudioModelClasses[best]);
+      final int start = starts[i];
+      final int end = ends[i];
+      if (segments.isNotEmpty &&
+          segments.last.type == type &&
+          start <= segments.last.endMs + 250) {
+        final AudioSegment previous = segments.removeLast();
+        final int total = previous.endMs - previous.startMs + end - start;
+        final double weighted = total <= 0
+            ? confidence
+            : (previous.confidence * (previous.endMs - previous.startMs) +
+                    confidence * (end - start)) /
+                total;
+        segments.add(AudioSegment(
+          startMs: previous.startMs,
+          endMs: end,
+          type: type,
+          confidence: weighted,
+        ));
+      } else {
+        segments.add(AudioSegment(
+          startMs: start,
+          endMs: end,
+          type: type,
+          confidence: confidence,
+        ));
+      }
+    }
+    return segments;
+  }
+
+  // ------------------------------------------------------------- analysis
+
+  static _Analysis? _analyze(Uint8List pcm, int sampleRate) {
+    if (sampleRate <= 0) return null;
+    final int sampleCount = pcm.length ~/ 2;
+    if (sampleCount < 32) return null;
+
+    final Int16List raw = Int16List(sampleCount);
+    final ByteData bytes = ByteData.sublistView(pcm);
+    var peak = 0.0;
+    for (var i = 0; i < sampleCount; i++) {
+      final int value = bytes.getInt16(i * 2, Endian.little);
+      raw[i] = value;
+      final double normalized = value / 32768.0;
+      final double magnitude = normalized.abs();
+      if (magnitude > peak) peak = magnitude;
+    }
+    final Float32List samples = Float32List(sampleCount);
+    for (var i = 0; i < sampleCount; i++) {
+      samples[i] = raw[i] / 32768.0;
+    }
+
+    final int durationMs = (sampleCount * 1000 / sampleRate).round();
+    final int frameCount =
+        sampleCount <= frameSize ? 1 : 1 + (sampleCount - frameSize) ~/ hopSize;
+
+    final Float64List frameDb = Float64List(frameCount);
+    final Float64List frameZcr = Float64List(frameCount);
+    final Float64List frameCentroid = Float64List(frameCount);
+    final Float64List frameRolloff = Float64List(frameCount);
+    final Float64List frameSlope = Float64List(frameCount);
+    final Float64List frameFlatness = Float64List(frameCount);
+    final Float64List frameFlux = Float64List(frameCount);
+    final Float64List frameVoicing = Float64List(frameCount);
+    final Float64List frameF0 = Float64List(frameCount);
+    final Float64List bandPower = Float64List(frameCount * 6);
+
+    final double binHz = sampleRate / fftSize;
+    final List<int> audible = <int>[];
+    final List<List<int>> bands = List<List<int>>.generate(6, (_) => <int>[]);
+    final List<int> flatBins = <int>[];
+    final List<int> slopeBins = <int>[];
+    final List<double> centroidWeights = <double>[];
+    const List<double> edges = <double>[50, 150, 400, 1000, 2500, 5000, 8000];
+    for (var bin = 0; bin <= fftSize ~/ 2; bin++) {
+      final double hz = bin * binHz;
+      if (hz >= 50 && hz < 8000) {
+        audible.add(bin);
+        centroidWeights.add(hz);
+      }
+      for (var band = 0; band < 6; band++) {
+        if (hz >= edges[band] && hz < edges[band + 1]) {
+          bands[band].add(bin);
+          break;
+        }
+      }
+      if (hz >= 100 && hz < 4000) flatBins.add(bin);
+      if (hz >= 50 && hz < 4000) slopeBins.add(bin);
+    }
+
+    final Float64List re = Float64List(fftSize);
+    final Float64List im = Float64List(fftSize);
+    final Float64List power = Float64List(fftSize ~/ 2 + 1);
+    final Float64List magnitude = Float64List(fftSize ~/ 2 + 1);
+    final Float64List previousMagnitude = Float64List(fftSize ~/ 2 + 1);
+    final Float64List normalizedMagnitude = Float64List(fftSize ~/ 2 + 1);
+    final Float64List frame = Float64List(frameSize);
+
+    for (var index = 0; index < frameCount; index++) {
+      final int start = index * hopSize;
+      for (var i = 0; i < frameSize; i++) {
+        final int position = start + i;
+        frame[i] = position < sampleCount ? samples[position] : 0.0;
+      }
+
+      double sumSquares = 0;
+      for (var i = 0; i < frameSize; i++) {
+        sumSquares += frame[i] * frame[i];
+      }
+      frameDb[index] = _linearToDb(math.sqrt(sumSquares / frameSize));
+      frameZcr[index] = _zeroCrossingRate(frame);
+
+      for (var i = 0; i < fftSize; i++) {
+        re[i] = i < frameSize ? frame[i] * _hann400[i] : 0.0;
+        im[i] = 0.0;
+      }
+      _fft(re, im, _bitReverse, _cosTable, _sinTable);
+      for (var bin = 0; bin <= fftSize ~/ 2; bin++) {
+        final double p = re[bin] * re[bin] + im[bin] * im[bin];
+        power[bin] = p;
+        magnitude[bin] = math.sqrt(p);
+      }
+
+      double total = 0;
+      double weighted = 0;
+      for (var i = 0; i < audible.length; i++) {
+        total += power[audible[i]];
+        weighted += centroidWeights[i] * power[audible[i]];
+      }
+      frameCentroid[index] = total > _eps ? weighted / total : 0;
+
+      double cumulative = 0;
+      double rolloff = 0;
+      if (total > _eps) {
+        for (final bin in audible) {
+          cumulative += power[bin];
+          if (cumulative >= 0.85 * total) {
+            rolloff = bin * binHz;
+            break;
+          }
+        }
+      }
+      frameRolloff[index] = rolloff;
+
+      double logSum = 0;
+      double arithmetic = 0;
+      for (final bin in flatBins) {
+        logSum += math.log(power[bin] + _eps);
+        arithmetic += power[bin];
+      }
+      if (flatBins.isNotEmpty) {
+        arithmetic /= flatBins.length;
+        frameFlatness[index] = arithmetic > _eps
+            ? (math.exp(logSum / flatBins.length) / arithmetic).clamp(0.0, 1.0)
+            : 0.0;
+      }
+
+      double slope = 0;
+      if (slopeBins.length >= 2) {
+        double meanF = 0;
+        double meanDb = 0;
+        for (final bin in slopeBins) {
+          meanF += bin * binHz / 1000.0;
+          meanDb += 10 * math.log(power[bin] + _eps) / math.ln10;
+        }
+        meanF /= slopeBins.length;
+        meanDb /= slopeBins.length;
+        double covariance = 0;
+        double variance = 0;
+        for (final bin in slopeBins) {
+          final double f = bin * binHz / 1000.0;
+          final double db = 10 * math.log(power[bin] + _eps) / math.ln10;
+          covariance += (f - meanF) * (db - meanDb);
+          variance += (f - meanF) * (f - meanF);
+        }
+        slope = variance > _eps ? covariance / variance : 0;
+      }
+      frameSlope[index] = slope;
+
+      double magnitudeSum = 0;
+      for (final bin in audible) {
+        magnitudeSum += magnitude[bin];
+      }
+      final double safeMagnitude = magnitudeSum + _eps;
+      double diff = 0;
+      for (var bin = 0; bin <= fftSize ~/ 2; bin++) {
+        normalizedMagnitude[bin] = magnitude[bin] / safeMagnitude;
+        if (index > 0) {
+          diff += (normalizedMagnitude[bin] - previousMagnitude[bin]).abs();
+        }
+      }
+      frameFlux[index] = index == 0 ? 0.0 : diff.clamp(0.0, 1.0);
+      previousMagnitude.setAll(0, normalizedMagnitude);
+
+      for (var band = 0; band < 6; band++) {
+        double sum = 0;
+        for (final bin in bands[band]) {
+          sum += power[bin];
+        }
+        bandPower[index * 6 + band] = sum;
+      }
+
+      if (index % 2 == 0) {
+        final _VoicingResult voicing = _voicing(samples, start);
+        frameVoicing[index] = voicing.strength;
+        frameF0[index] = voicing.f0;
+      } else {
+        frameVoicing[index] = frameVoicing[index - 1];
+        frameF0[index] = frameF0[index - 1];
+      }
+    }
+
+    final double noiseFloor = _percentile(frameDb, 0.10);
+    final double startThreshold = noiseFloor + 10.0;
+    final double holdThreshold = noiseFloor + 6.0;
+    final Uint8List mask = Uint8List(frameCount);
+    for (var i = 0; i < frameCount; i++) {
+      if (frameDb[i] > holdThreshold || frameDb[i] > startThreshold) {
+        mask[i] = 1;
+      }
+    }
+    var index = 0;
+    while (index < frameCount) {
+      if (mask[index] == 1) {
+        index++;
+        continue;
+      }
+      final int gapStart = index;
+      while (index < frameCount && mask[index] == 0) {
+        index++;
+      }
+      final int gap = index - gapStart;
+      if (gap > 0 && gap <= 4 && gapStart > 0 && index < frameCount) {
+        for (var i = gapStart; i < index; i++) {
+          mask[i] = 1;
+        }
+      }
+    }
+
+    var firstActive = -1;
+    var lastActive = -1;
+    for (var i = 0; i < frameCount; i++) {
+      if (mask[i] == 1) {
+        if (firstActive < 0) firstActive = i;
+        lastActive = i;
+      }
+    }
+
+    return _Analysis(
+      samples: samples,
+      sampleRate: sampleRate,
+      sampleCount: sampleCount,
+      durationMs: durationMs,
+      frameCount: frameCount,
+      frameDb: frameDb,
+      frameZcr: frameZcr,
+      frameCentroid: frameCentroid,
+      frameRolloff: frameRolloff,
+      frameSlope: frameSlope,
+      frameFlatness: frameFlatness,
+      frameFlux: frameFlux,
+      frameVoicing: frameVoicing,
+      frameF0: frameF0,
+      bandPower: bandPower,
+      mask: mask,
+      noiseFloorDb: noiseFloor,
+      peakDb: _linearToDb(peak),
+      firstActive: firstActive,
+      lastActive: lastActive,
+    );
+  }
+
+  static double _zeroCrossingRate(Float64List frame) {
+    var crossings = 0;
+    var previous = frame[0] >= 0;
+    for (var i = 1; i < frame.length; i++) {
+      final bool current = frame[i] >= 0;
+      if (current != previous) crossings++;
+      previous = current;
+    }
+    return crossings / (frame.length - 1);
+  }
+
+  static _VoicingResult _voicing(Float32List samples, int start) {
+    final Float64List chunk = Float64List(_acfWindow);
+    final int available = math.min(_acfWindow, samples.length - start);
+    if (available <= 0) return const _VoicingResult(0, 0);
+    for (var i = 0; i < available; i++) {
+      chunk[i] = samples[start + i];
+    }
+    const int downLength = _acfWindow ~/ _acfDecimation;
+    final Float64List down = Float64List(downLength);
+    for (var i = 0; i < downLength; i++) {
+      var sum = 0.0;
+      for (var j = 0; j < _acfDecimation; j++) {
+        sum += chunk[i * _acfDecimation + j];
+      }
+      down[i] = sum / _acfDecimation;
+    }
+    double mean = 0;
+    for (final value in down) {
+      mean += value;
+    }
+    mean /= down.length;
+    for (var i = 0; i < down.length; i++) {
+      down[i] -= mean;
+    }
+    double energy = 0;
+    for (final value in down) {
+      energy += value * value;
+    }
+    if (energy <= 1e-10) return const _VoicingResult(0, 0);
+
+    var best = 0.0;
+    var bestLag = 0;
+    var crossedZero = false;
+    final int maxLag = math.min(_acfMaxLag, down.length - 1);
+    for (var lag = _acfMinLag; lag <= maxLag; lag++) {
+      double numerator = 0;
+      double energyA = 0;
+      double energyB = 0;
+      final int limit = down.length - lag;
+      for (var i = 0; i < limit; i++) {
+        final double a = down[i];
+        final double b = down[i + lag];
+        numerator += a * b;
+        energyA += a * a;
+        energyB += b * b;
+      }
+      final double denominator = math.sqrt(energyA * energyB + _eps);
+      if (denominator <= 0) continue;
+      var correlation = numerator / denominator;
+      correlation /= math.max(_eps, (down.length - lag) / down.length);
+      if (!crossedZero) {
+        if (correlation < 0) crossedZero = true;
+        continue;
+      }
+      if (correlation > best) {
+        best = correlation;
+        bestLag = lag;
+      }
+    }
+    if (bestLag == 0 || best <= 0) return const _VoicingResult(0, 0);
+    final double f0 = (16000 / _acfDecimation) / bestLag;
+    return _VoicingResult(best.clamp(0.0, 1.0), f0);
+  }
+
+  static _Modulation _modulation(Float64List envelope, double frameRate) {
+    if (envelope.length < 8) {
+      return const _Modulation(0, 0, 0, false);
+    }
+    double mean = 0;
+    for (final value in envelope) {
+      mean += value;
+    }
+    mean /= envelope.length;
+    double variance = 0;
+    for (final value in envelope) {
+      final double d = value - mean;
+      variance += d * d;
+    }
+    if (variance <= _eps) return const _Modulation(0, 0, 0, false);
+
+    final int nfft = _nextPowerOfTwo(math.max(64, envelope.length));
+    final Float64List re = Float64List(nfft);
+    final Float64List im = Float64List(nfft);
+    final Float64List hann = _hann(envelope.length);
+    for (var i = 0; i < envelope.length; i++) {
+      re[i] = (envelope[i] - mean) * hann[i];
+    }
+    final List<int> reverse = _bitReverseTable(nfft);
+    final Float64List cosTable = _cosTableFor(nfft);
+    final Float64List sinTable = _sinTableFor(nfft);
+    _fft(re, im, reverse, cosTable, sinTable);
+
+    final double frameRateHz = frameRate;
+    final double binHz = frameRateHz / nfft;
+    double total = 0;
+    double syllable = 0;
+    double breath = 0;
+    double peak = 0;
+    double peakHz = 0;
+    for (var bin = 0; bin <= nfft ~/ 2; bin++) {
+      final double hz = bin * binHz;
+      final double p = re[bin] * re[bin] + im[bin] * im[bin];
+      if (hz >= 0.05 && hz < 20) total += p;
+      if (hz >= 2 && hz < 8) syllable += p;
+      if (hz >= 0.15 && hz < 0.7) {
+        breath += p;
+      }
+      if (hz >= 0.15 && hz <= 8 && p > peak) {
+        peak = p;
+        peakHz = hz;
+      }
+    }
+    if (total <= _eps) return const _Modulation(0, 0, 0, false);
+    final bool valid = envelope.length / frameRateHz >= 8.0;
+    return _Modulation(
+      syllable / total,
+      valid ? breath / total : 0,
+      peakHz,
+      valid,
+    );
+  }
+
+  // ------------------------------------------------------------- aggregation
+
+  static AudioFeatures _emptyFor(_Analysis analysis, int durationMs) {
+    return AudioFeatures(
+      durationMs: durationMs,
+      activeDurationMs: 0,
+      activeRatio: 0,
+      rmsDb: -100,
+      peakDb: analysis.peakDb,
+      noiseFloorDb: analysis.noiseFloorDb,
+      snrDb: 0,
+      zcr: 0,
+      centroidHz: 0,
+      centroidIqrHz: 0,
+      rolloffHz: 0,
+      spectralSlopeDbPerKhz: 0,
+      flatness: 0,
+      flatnessIqr: 0,
+      flux: 0,
+      bandRatios: const <double>[0, 0, 0, 0, 0, 0],
+      voicing: 0,
+      voicedFrameRatio: 0,
+      f0Hz: 0,
+      f0StdSemitones: 0,
+      modulationSyllable: 0,
+      modulationBreath: 0,
+      modulationBreathValid: false,
+      modulationPeakHz: 0,
+      onsetRate: 0,
+      segmentDurationMedianMs: 0,
+      segmentDurationIqrMs: 0,
+      gapCv: 0,
+      crestFactor: 0,
+      envelopeKurtosis: 0,
+      shortBroadbandRatio: 0,
+      activeStartMs: 0,
+      activeEndMs: 0,
+    );
+  }
+
+  static double _percentile(Float64List values, double q) {
+    if (values.isEmpty) return 0;
+    final Float64List sorted = Float64List.fromList(values)..sort();
+    final int index =
+        (q * (sorted.length - 1) + 0.5).floor().clamp(0, sorted.length - 1);
+    return sorted[index];
+  }
+
+  static double _medianOf(
+    Float64List values,
+    List<int> indices,
+  ) {
+    if (indices.isEmpty) return 0;
+    final Float64List picked = Float64List(indices.length);
+    for (var i = 0; i < indices.length; i++) {
+      picked[i] = values[indices[i]];
+    }
+    return _percentile(picked, 0.5);
+  }
+
+  static double _iqrOf(Float64List values, List<int> indices) {
+    if (indices.isEmpty) return 0;
+    final Float64List picked = Float64List(indices.length);
+    for (var i = 0; i < indices.length; i++) {
+      picked[i] = values[indices[i]];
+    }
+    return _percentile(picked, 0.75) - _percentile(picked, 0.25);
+  }
+
+  static AudioFeatures _aggregate(
+    _Analysis analysis, {
+    required int frameStart,
+    required int frameEnd,
+    required int sampleStart,
+    required int sampleEnd,
+    required int durationMs,
+  }) {
+    if (frameStart > frameEnd ||
+        frameStart < 0 ||
+        frameEnd >= analysis.frameCount) {
+      return _emptyFor(analysis, durationMs);
+    }
+    final List<int> active = <int>[];
+    for (var i = frameStart; i <= frameEnd; i++) {
+      if (analysis.mask[i] == 1) active.add(i);
+    }
+    if (active.isEmpty) return _emptyFor(analysis, durationMs);
+
+    final int frameCount = frameEnd - frameStart + 1;
+    final double activeDurationS =
+        active.length * hopSize / analysis.sampleRate;
+    final double activeRatio = active.length / frameCount;
+
+    final List<_Run> runs = <_Run>[];
+    var index = frameStart;
+    while (index <= frameEnd) {
+      if (analysis.mask[index] == 0) {
+        index++;
+        continue;
+      }
+      final int start = index;
+      while (index <= frameEnd && analysis.mask[index] == 1) {
+        index++;
+      }
+      runs.add(_Run(start, index - 1));
+    }
+    final Float64List durations = Float64List(runs.length);
+    for (var i = 0; i < runs.length; i++) {
+      durations[i] =
+          (runs[i].end - runs[i].start + 1) * hopSize / analysis.sampleRate;
+    }
+    final List<double> gaps = <double>[];
+    for (var i = 1; i < runs.length; i++) {
+      gaps.add(
+        (runs[i].start - runs[i - 1].end - 1) * hopSize / analysis.sampleRate,
+      );
+    }
+    double gapCv = 0;
+    if (gaps.length >= 2) {
+      double mean = 0;
+      for (final gap in gaps) {
+        mean += gap;
+      }
+      mean /= gaps.length;
+      if (mean > _eps) {
+        double variance = 0;
+        for (final gap in gaps) {
+          final double d = gap - mean;
+          variance += d * d;
+        }
+        gapCv = math.sqrt(variance / gaps.length) / mean;
+      }
+    }
+
+    final int firstActive = active.first;
+    final int lastActive = active.last;
+    final double medianActiveDb = _medianOf(analysis.frameDb, active);
+    final double snrDb = medianActiveDb - analysis.noiseFloorDb;
+    final Float64List activeRms = Float64List(active.length);
+    for (var i = 0; i < active.length; i++) {
+      activeRms[i] = math.pow(10, analysis.frameDb[active[i]] / 20).toDouble();
+    }
+    double rmsMean = 0;
+    double rmsMax = 0;
+    for (final value in activeRms) {
+      rmsMean += value;
+      if (value > rmsMax) rmsMax = value;
+    }
+    rmsMean /= activeRms.length;
+    final double crest = rmsMean > _eps ? rmsMax / rmsMean : 0;
+    double kurtosis = 0;
+    if (activeRms.length > 1) {
+      double variance = 0;
+      for (final value in activeRms) {
+        final double d = value - rmsMean;
+        variance += d * d;
+      }
+      variance /= activeRms.length;
+      final double std = math.sqrt(variance);
+      if (std > _eps) {
+        double moment = 0;
+        for (final value in activeRms) {
+          final double d = (value - rmsMean) / std;
+          moment += d * d * d * d;
+        }
+        kurtosis = moment / activeRms.length;
+      }
+    }
+
+    double shortBroadband = 0;
+    for (final run in runs) {
+      final double runDuration =
+          (run.end - run.start + 1) * hopSize / analysis.sampleRate;
+      if (runDuration >= 0.150) continue;
+      double centroid = 0;
+      double flatness = 0;
+      for (var i = run.start; i <= run.end; i++) {
+        centroid += analysis.frameCentroid[i];
+        flatness += analysis.frameFlatness[i];
+      }
+      final int count = run.end - run.start + 1;
+      if (centroid / count > 2000 && flatness / count > 0.30) {
+        shortBroadband += runDuration;
+      }
+    }
+
+    final Float64List meanBands = Float64List(6);
+    for (final frame in active) {
+      for (var band = 0; band < 6; band++) {
+        meanBands[band] += analysis.bandPower[frame * 6 + band];
+      }
+    }
+    double bandSum = _eps;
+    for (var band = 0; band < 6; band++) {
+      meanBands[band] /= active.length;
+      bandSum += meanBands[band];
+    }
+    final List<double> bandRatios = <double>[
+      for (var band = 0; band < 6; band++) meanBands[band] / bandSum,
+    ];
+
+    final List<int> voiced = <int>[];
+    for (final frame in active) {
+      if (analysis.frameVoicing[frame] > 0.30 && analysis.frameF0[frame] > 0) {
+        voiced.add(frame);
+      }
+    }
+    final double f0Median =
+        voiced.isEmpty ? 0 : _medianOf(analysis.frameF0, voiced);
+    double f0Std = 0;
+    if (voiced.length >= 2 && f0Median > 0) {
+      double sum = 0;
+      for (final frame in voiced) {
+        sum += math.log(analysis.frameF0[frame] / f0Median) / math.ln2 * 12;
+      }
+      final double mean = sum / voiced.length;
+      double variance = 0;
+      for (final frame in voiced) {
+        final double value =
+            math.log(analysis.frameF0[frame] / f0Median) / math.ln2 * 12;
+        final double d = value - mean;
+        variance += d * d;
+      }
+      f0Std = math.sqrt(variance / voiced.length);
+    }
+
+    final Float64List envelope = Float64List(lastActive - firstActive + 1);
+    for (var i = firstActive; i <= lastActive; i++) {
+      envelope[i - firstActive] =
+          math.pow(10, analysis.frameDb[i] / 20).toDouble();
+    }
+    final _Modulation modulation =
+        _modulation(envelope, analysis.sampleRate / hopSize);
+
+    double peak = 0;
+    for (var i = sampleStart; i < sampleEnd && i < analysis.sampleCount; i++) {
+      final double value = analysis.samples[i].abs();
+      if (value > peak) peak = value;
+    }
+
+    final int activeStartMs = math.max(
+      0,
+      ((firstActive * hopSize - sampleStart) * 1000 / analysis.sampleRate)
+          .round(),
+    );
+    final int activeEndMs = math.min(
+      durationMs,
+      math.max(
+        0,
+        ((lastActive * hopSize + frameSize - sampleStart) *
+                1000 /
+                analysis.sampleRate)
+            .round(),
+      ),
+    );
+
+    return AudioFeatures(
+      durationMs: durationMs,
+      activeDurationMs: (activeDurationS * 1000).round(),
+      activeRatio: activeRatio,
+      rmsDb: _linearToDb(rmsMean),
+      peakDb: _linearToDb(peak),
+      noiseFloorDb: analysis.noiseFloorDb,
+      snrDb: snrDb,
+      zcr: _medianOf(analysis.frameZcr, active),
+      centroidHz: _medianOf(analysis.frameCentroid, active),
+      centroidIqrHz: _iqrOf(analysis.frameCentroid, active),
+      rolloffHz: _medianOf(analysis.frameRolloff, active),
+      spectralSlopeDbPerKhz: _medianOf(analysis.frameSlope, active),
+      flatness: _medianOf(analysis.frameFlatness, active),
+      flatnessIqr: _iqrOf(analysis.frameFlatness, active),
+      flux: _medianOf(analysis.frameFlux, active),
+      bandRatios: bandRatios,
+      voicing: _medianOf(analysis.frameVoicing, active),
+      voicedFrameRatio: voiced.length / active.length,
+      f0Hz: f0Median,
+      f0StdSemitones: f0Std,
+      modulationSyllable: modulation.syllable,
+      modulationBreath: modulation.breath,
+      modulationBreathValid: modulation.breathValid,
+      modulationPeakHz: modulation.peak,
+      onsetRate: runs.length / math.max(_eps, activeDurationS),
+      segmentDurationMedianMs: _percentile(durations, 0.5) * 1000,
+      segmentDurationIqrMs:
+          (_percentile(durations, 0.75) - _percentile(durations, 0.25)) * 1000,
+      gapCv: gapCv,
+      crestFactor: crest,
+      envelopeKurtosis: kurtosis,
+      shortBroadbandRatio: shortBroadband / math.max(_eps, activeDurationS),
+      activeStartMs: activeStartMs,
+      activeEndMs: activeEndMs,
+    );
+  }
+
+  // ------------------------------------------------------------- FFT tables
+
+  static Float64List _hann(int size) {
     final Float64List window = Float64List(size);
     for (var i = 0; i < size; i++) {
-      window[i] = 0.5 * (1 - math.cos(2 * math.pi * i / (size - 1)));
+      window[i] = 0.5 * (1 - math.cos(2 * math.pi * i / math.max(1, size - 1)));
     }
     return window;
   }
 
-  static double _zeroCrossingRate(Int16List samples, int start) {
-    var crossings = 0;
-    var previous = 0;
-    var counted = 0;
-    for (var i = 0; i < frameSize; i++) {
-      final int index = start + i;
-      if (index >= samples.length) break;
-      final int sample = samples[index];
-      if (i > 0 && ((sample >= 0) != (previous >= 0))) crossings++;
-      previous = sample;
-      counted++;
+  static Float64List _cosTableFor(int size) {
+    final Float64List table = Float64List(size ~/ 2);
+    for (var i = 0; i < table.length; i++) {
+      table[i] = math.cos(2 * math.pi * i / size);
     }
-    return counted <= 1 ? 0.0 : crossings / (counted - 1);
+    return table;
   }
 
-  static _PitchResult _estimatePitch(
-    Int16List samples,
-    int start,
-    int minLag,
-    int maxLag,
-    int sampleRate,
+  static Float64List _sinTableFor(int size) {
+    final Float64List table = Float64List(size ~/ 2);
+    for (var i = 0; i < table.length; i++) {
+      table[i] = math.sin(2 * math.pi * i / size);
+    }
+    return table;
+  }
+
+  static List<int> _bitReverseTable(int size) {
+    var bits = 0;
+    while ((1 << bits) < size) {
+      bits++;
+    }
+    final List<int> table = List<int>.filled(size, 0);
+    for (var i = 0; i < size; i++) {
+      var value = i;
+      var reversed = 0;
+      for (var bit = 0; bit < bits; bit++) {
+        reversed = (reversed << 1) | (value & 1);
+        value >>= 1;
+      }
+      table[i] = reversed;
+    }
+    return table;
+  }
+
+  static void _fft(
+    Float64List re,
+    Float64List im,
+    List<int> reverse,
+    Float64List cosTable,
+    Float64List sinTable,
   ) {
-    if (maxLag <= minLag) return const _PitchResult(0, 0);
-    double energy = 0;
-    for (var i = 0; i < frameSize; i++) {
-      final int index = start + i;
-      if (index >= samples.length) break;
-      final double v = samples[index] / 32768.0;
-      energy += v * v;
-    }
-    if (energy < 1e-8) return const _PitchResult(0, 0);
-
-    double best = 0;
-    int bestLag = 0;
-    for (var lag = minLag; lag <= maxLag; lag++) {
-      double cross = 0;
-      double energyLag = 0;
-      for (var i = 0; i + lag < frameSize; i++) {
-        final int a = start + i;
-        final int b = start + i + lag;
-        if (b >= samples.length) break;
-        final double va = samples[a] / 32768.0;
-        final double vb = samples[b] / 32768.0;
-        cross += va * vb;
-        energyLag += vb * vb;
-      }
-      if (energyLag <= 0) continue;
-      final double normalized = cross / math.sqrt(energy * energyLag + _eps);
-      if (normalized > best) {
-        best = normalized;
-        bestLag = lag;
-      }
-    }
-    if (bestLag == 0) return const _PitchResult(0, 0);
-    return _PitchResult(best.clamp(0.0, 1.0), sampleRate / bestLag);
-  }
-
-  static _Spectrum _spectrumStats(
-    List<double> re,
-    List<double> im,
-    int sampleRate,
-    List<double> previousMagnitudes,
-    int binCount,
-  ) {
-    final int binHz = sampleRate ~/ frameSize;
-    final Float64List magnitudes = Float64List(binCount);
-    final Float64List power = Float64List(binCount);
-
-    for (var i = 0; i < binCount; i++) {
-      final double p = re[i] * re[i] + im[i] * im[i];
-      power[i] = p;
-      magnitudes[i] = math.sqrt(p);
-    }
-
-    final int lowStart = math.max(1, 40 ~/ math.max(1, binHz));
-    final int lowEnd = 400 ~/ math.max(1, binHz);
-    final int midEnd = 3000 ~/ math.max(1, binHz);
-    final int highEnd = math.min(binCount - 1, 8000 ~/ math.max(1, binHz));
-
-    double low = 0;
-    double mid = 0;
-    double high = 0;
-    double total = 0;
-    double weighted = 0;
-    double logSum = 0;
-    var counted = 0;
-
-    for (var i = lowStart; i <= highEnd; i++) {
-      final double p = power[i];
-      final double hz = i * binHz.toDouble();
-      total += p;
-      weighted += hz * p;
-      logSum += math.log(p + _eps);
-      counted++;
-      if (i <= lowEnd) {
-        low += p;
-      } else if (i <= midEnd) {
-        mid += p;
-      } else {
-        high += p;
-      }
-    }
-
-    final double centroid = total > _eps ? weighted / total : 0;
-    final double arithmetic = counted > 0 ? total / counted : 0;
-    final double flatness = arithmetic > _eps
-        ? (math.exp(logSum / math.max(1, counted)) / arithmetic).clamp(0.0, 1.0)
-        : 0.0;
-
-    double flux = 0;
-    double magnitudeSum = 0;
-    if (previousMagnitudes.length == binCount) {
-      double diff = 0;
-      for (var i = 1; i < binCount; i++) {
-        diff += (magnitudes[i] - previousMagnitudes[i]).abs();
-        magnitudeSum += magnitudes[i];
-      }
-      flux = magnitudeSum > _eps ? (diff / magnitudeSum).clamp(0.0, 1.0) : 0;
-    }
-
-    return _Spectrum(
-      centroid: centroid,
-      flatness: flatness,
-      flux: flux,
-      low: low,
-      mid: mid,
-      high: high,
-      magnitudes: magnitudes,
-    );
-  }
-
-  static _Modulation _envelopeModulation(
-    Float64List envelope,
-    int sampleRate,
-    int hop,
-  ) {
-    final int n = envelope.length;
-    if (n < 8) return const _Modulation(0, 0);
-
-    double mean = 0;
-    for (final v in envelope) {
-      mean += v;
-    }
-    mean /= n;
-
-    double variance = 0;
-    for (final v in envelope) {
-      final double d = v - mean;
-      variance += d * d;
-    }
-    if (variance <= _eps) return const _Modulation(0, 0);
-
-    final double frameRate = sampleRate / hop;
-    final int minLag = math.max(1, (frameRate / 8).round());
-    final int maxLag = math.min(n ~/ 2, (frameRate / 0.25).round());
-    if (maxLag <= minLag) return const _Modulation(0, 0);
-
-    double best = 0;
-    int bestLag = 0;
-    for (var lag = minLag; lag <= maxLag; lag++) {
-      double cross = 0;
-      for (var i = 0; i + lag < n; i++) {
-        cross += (envelope[i] - mean) * (envelope[i + lag] - mean);
-      }
-      final double normalized = cross / variance;
-      if (normalized > best) {
-        best = normalized;
-        bestLag = lag;
-      }
-    }
-    if (bestLag == 0) return const _Modulation(0, 0);
-    final double variability = (math.sqrt(variance / n) / (mean + _eps)).clamp(0.0, 1.0);
-    return _Modulation((best * variability).clamp(0.0, 1.0), frameRate / bestLag);
-  }
-
-  /// Итеративное БПФ радикс-2 на месте.
-  static void _fft(List<double> re, List<double> im) {
     final int n = re.length;
-    var j = 0;
-    for (var i = 0; i < n - 1; i++) {
+    for (var i = 0; i < n; i++) {
+      final int j = reverse[i];
       if (i < j) {
         final double tr = re[i];
         re[i] = re[j];
@@ -637,39 +1213,36 @@ class AudioEventClassifier {
         im[i] = im[j];
         im[j] = ti;
       }
-      var m = n >> 1;
-      while (m >= 1 && j >= m) {
-        j -= m;
-        m >>= 1;
-      }
-      j += m;
     }
-
-    for (var len = 2; len <= n; len <<= 1) {
-      final double angle = -2 * math.pi / len;
-      final double wRe = math.cos(angle);
-      final double wIm = math.sin(angle);
-      for (var i = 0; i < n; i += len) {
-        double curRe = 1;
-        double curIm = 0;
-        final int half = len >> 1;
+    for (var length = 2; length <= n; length <<= 1) {
+      final int half = length >> 1;
+      final int step = n ~/ length;
+      for (var start = 0; start < n; start += length) {
         for (var k = 0; k < half; k++) {
-          final int a = i + k;
+          final int tableIndex = k * step;
+          final double wRe = cosTable[tableIndex];
+          final double wIm = -sinTable[tableIndex];
+          final int a = start + k;
           final int b = a + half;
           final double uRe = re[a];
           final double uIm = im[a];
-          final double vRe = re[b] * curRe - im[b] * curIm;
-          final double vIm = re[b] * curIm + im[b] * curRe;
+          final double vRe = re[b] * wRe - im[b] * wIm;
+          final double vIm = re[b] * wIm + im[b] * wRe;
           re[a] = uRe + vRe;
           im[a] = uIm + vIm;
           re[b] = uRe - vRe;
           im[b] = uIm - vIm;
-          final double nextRe = curRe * wRe - curIm * wIm;
-          curIm = curRe * wIm + curIm * wRe;
-          curRe = nextRe;
         }
       }
     }
+  }
+
+  static int _nextPowerOfTwo(int value) {
+    var result = 1;
+    while (result < value) {
+      result <<= 1;
+    }
+    return result;
   }
 
   static double _linearToDb(double linear) {
@@ -678,33 +1251,85 @@ class AudioEventClassifier {
   }
 }
 
-class _PitchResult {
-  final double strength;
-  final double f0;
-  const _PitchResult(this.strength, this.f0);
+class _Analysis {
+  final Float32List samples;
+  final int sampleRate;
+  final int sampleCount;
+  final int durationMs;
+  final int frameCount;
+  final Float64List frameDb;
+  final Float64List frameZcr;
+  final Float64List frameCentroid;
+  final Float64List frameRolloff;
+  final Float64List frameSlope;
+  final Float64List frameFlatness;
+  final Float64List frameFlux;
+  final Float64List frameVoicing;
+  final Float64List frameF0;
+  final Float64List bandPower;
+  final Uint8List mask;
+  final double noiseFloorDb;
+  final double peakDb;
+  final int firstActive;
+  final int lastActive;
+
+  const _Analysis({
+    required this.samples,
+    required this.sampleRate,
+    required this.sampleCount,
+    required this.durationMs,
+    required this.frameCount,
+    required this.frameDb,
+    required this.frameZcr,
+    required this.frameCentroid,
+    required this.frameRolloff,
+    required this.frameSlope,
+    required this.frameFlatness,
+    required this.frameFlux,
+    required this.frameVoicing,
+    required this.frameF0,
+    required this.bandPower,
+    required this.mask,
+    required this.noiseFloorDb,
+    required this.peakDb,
+    required this.firstActive,
+    required this.lastActive,
+  });
+
+  AudioFeatures aggregate({
+    required int frameStart,
+    required int frameEnd,
+    required int sampleStart,
+    required int sampleEnd,
+    required int durationMs,
+  }) {
+    return AudioEventClassifier._aggregate(
+      this,
+      frameStart: frameStart,
+      frameEnd: frameEnd,
+      sampleStart: sampleStart,
+      sampleEnd: sampleEnd,
+      durationMs: durationMs,
+    );
+  }
 }
 
-class _Spectrum {
-  final double centroid;
-  final double flatness;
-  final double flux;
-  final double low;
-  final double mid;
-  final double high;
-  final Float64List magnitudes;
-  const _Spectrum({
-    required this.centroid,
-    required this.flatness,
-    required this.flux,
-    required this.low,
-    required this.mid,
-    required this.high,
-    required this.magnitudes,
-  });
+class _Run {
+  final int start;
+  final int end;
+  const _Run(this.start, this.end);
+}
+
+class _VoicingResult {
+  final double strength;
+  final double f0;
+  const _VoicingResult(this.strength, this.f0);
 }
 
 class _Modulation {
-  final double depth;
-  final double rateHz;
-  const _Modulation(this.depth, this.rateHz);
+  final double syllable;
+  final double breath;
+  final double peak;
+  final bool breathValid;
+  const _Modulation(this.syllable, this.breath, this.peak, this.breathValid);
 }

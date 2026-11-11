@@ -35,5 +35,6 @@ flutter:
   assets:
     - assets/icon/
     - assets/data/
+    - assets/models/
     - assets/audio/ambient/
     - assets/audio/alarm/

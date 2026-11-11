@@ -12,16 +12,24 @@ Uint8List pcm16(List<double> samples) {
   return data.buffer.asUint8List();
 }
 
-Uint8List tone({double freq = 1000, double seconds = 1, double amplitude = 0.2}) {
+Uint8List tone(
+    {double freq = 1000, double seconds = 1, double amplitude = 0.2}) {
   final n = (kTestSampleRate * seconds).round();
-  return pcm16(List.generate(n, (i) => amplitude * math.sin(2 * math.pi * freq * i / kTestSampleRate)));
+  return pcm16(List.generate(n,
+      (i) => amplitude * math.sin(2 * math.pi * freq * i / kTestSampleRate)));
 }
 
-Uint8List amTone({double freq = 1000, double modHz = 1, double seconds = 4, double amplitude = 0.2}) {
+Uint8List amTone(
+    {double freq = 1000,
+    double modHz = 1,
+    double seconds = 4,
+    double amplitude = 0.2}) {
   final n = (kTestSampleRate * seconds).round();
   return pcm16(List.generate(n, (i) {
     final t = i / kTestSampleRate;
-    return amplitude * (0.5 + 0.5 * math.sin(2 * math.pi * modHz * t)) * math.sin(2 * math.pi * freq * t);
+    return amplitude *
+        (0.5 + 0.5 * math.sin(2 * math.pi * modHz * t)) *
+        math.sin(2 * math.pi * freq * t);
   }));
 }
 
@@ -79,8 +87,35 @@ Uint8List ambientSignal({double seconds = 10, double amplitude = 0.012}) {
   final n = (kTestSampleRate * seconds).round();
   return pcm16(List.generate(n, (i) {
     final t = i / kTestSampleRate;
-    return amplitude * (rnd.nextDouble() - 0.5) + 0.01 * math.sin(2 * math.pi * 100 * t);
+    return amplitude * (rnd.nextDouble() - 0.5) +
+        0.01 * math.sin(2 * math.pi * 100 * t);
   }));
 }
 
-Uint8List silence({double seconds = 2}) => pcm16(List.filled((kTestSampleRate * seconds).round(), 0.0));
+Uint8List silence({double seconds = 2}) =>
+    pcm16(List.filled((kTestSampleRate * seconds).round(), 0.0));
+
+/// Adds quiet room noise before and after an event so the adaptive noise floor
+/// has frames below the event. Constant-level test tones otherwise leave no
+/// active frames at all.
+Uint8List withQuiet(
+  Uint8List event, {
+  double preSeconds = 1.0,
+  double postSeconds = 1.0,
+  double noise = 0.001,
+}) {
+  final rnd = math.Random(31);
+  final pre = (kTestSampleRate * preSeconds).round();
+  final post = (kTestSampleRate * postSeconds).round();
+  final samples = <double>[
+    for (var i = 0; i < pre; i++) (rnd.nextDouble() - 0.5) * noise,
+  ];
+  final data = ByteData.sublistView(event);
+  for (var i = 0; i + 1 < event.length; i += 2) {
+    samples.add(data.getInt16(i, Endian.little) / 32768.0);
+  }
+  for (var i = 0; i < post; i++) {
+    samples.add((rnd.nextDouble() - 0.5) * noise);
+  }
+  return pcm16(samples);
+}

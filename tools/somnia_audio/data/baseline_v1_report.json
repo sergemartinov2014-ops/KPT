@@ -1,0 +1,62 @@
+{
+  "dataset": "tools/somnia_audio/data/v1_test",
+  "classifier": "v1 snapshot from main",
+  "warning": "Synthetic data only. These numbers do not estimate real-world accuracy.",
+  "rows": 160,
+  "accuracy": 0.3375,
+  "macro_f1": 0.36464761570827486,
+  "per_class": {
+    "snore": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 40.0
+    },
+    "talk": {
+      "precision": 0.575,
+      "recall": 0.575,
+      "f1": 0.575,
+      "support": 40.0
+    },
+    "movement": {
+      "precision": 1.0,
+      "recall": 0.725,
+      "f1": 0.8405797101449275,
+      "support": 40.0
+    },
+    "ambient": {
+      "precision": 0.03773584905660377,
+      "recall": 0.05,
+      "f1": 0.04301075268817204,
+      "support": 40.0
+    }
+  },
+  "confusion": [
+    [
+      0,
+      17,
+      0,
+      23
+    ],
+    [
+      0,
+      23,
+      0,
+      17
+    ],
+    [
+      0,
+      0,
+      29,
+      11
+    ],
+    [
+      38,
+      0,
+      0,
+      2
+    ]
+  ],
+  "talk_to_snore_rate": 0.0,
+  "elapsed_ms": 27895
+}

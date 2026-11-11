@@ -1,0 +1,37 @@
+{
+  "classifier": "AudioEventClassifier v2",
+  "fixture": "test/fixtures/sleep_audio/synth/snore.wav",
+  "fixture_source": "synthetic (tools/somnia_audio/make_fixtures.py)",
+  "runtime": "dart JIT, development machine",
+  "warning": "JIT on desktop. Not a phone measurement. Re-measure on an AOT device build.",
+  "rows": [
+    {
+      "label": "15s",
+      "seconds": 15.0,
+      "iterations": 5,
+      "median_ms": 27.63,
+      "min_ms": 27.513,
+      "max_ms": 28.271,
+      "mean_ms": 27.748,
+      "rss_before_mb": 200.328125,
+      "rss_after_mb": 207.6640625,
+      "predicted": "snore",
+      "confidence": 0.9998827500739028,
+      "segments": 9
+    },
+    {
+      "label": "45s",
+      "seconds": 45.0,
+      "iterations": 5,
+      "median_ms": 83.254,
+      "min_ms": 82.377,
+      "max_ms": 117.633,
+      "mean_ms": 89.9256,
+      "rss_before_mb": 217.36328125,
+      "rss_after_mb": 200.9453125,
+      "predicted": "snore",
+      "confidence": 0.9995010441200403,
+      "segments": 23
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/sleep_audio_clip.dart';
+import '../models/sleep_audio_event.dart';
 import '../services/sleep_audio_recorder_service.dart';
 
 class SleepAudioProvider extends ChangeNotifier {
@@ -12,6 +13,9 @@ class SleepAudioProvider extends ChangeNotifier {
   double get currentDb => _service.currentDb;
   int get sessionClipCount => _service.sessionClipCount;
   List<SleepAudioClip> get clips => _service.clips;
+  List<SleepAudioEvent> get events => _service.events;
+  double get noiseFloorDb => _service.noiseFloorDb;
+  double get triggerThresholdDb => _service.triggerThresholdDb;
   String? get playingClipId => _service.playingClipId;
   int get delayMinutes => _service.delayMinutes;
   double get startThresholdDb => _service.startThresholdDb;
