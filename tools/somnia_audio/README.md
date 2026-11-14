@@ -1,8 +1,56 @@
-# Somnia audio tooling
+﻿# Somnia audio tooling
 
-Offline tools for the Phase 1 night-sound classifier. They generate synthetic
-data, extract the same features as the Dart code, train and calibrate a small
-model, export it, and evaluate labelled WAV files.
+Offline tools for the night-sound classifier.
+
+## Current state (v3, 2026-11-14)
+
+The shipping classifier is **not** a trained model any more. It is the DSP score
+fusion in `lib/services/audio_event_classifier.dart`, and the event detector is
+`lib/services/night_sound_detector.dart`. The reasons and the measured results
+are in `docs/SLEEP_AUDIO_DSP.md`.
+
+| Piece | Status |
+| --- | --- |
+| `features.py` | Active. Reference extractor; the Dart port is checked against it by `test/audio_feature_parity_test.dart`. |
+| `synth.py` | Active, rewritten for v3: physically grounded snore spectrum, iPhone path, bedroom floor. Generates test data. |
+| `make_fixtures.py` | Active. Writes the committed WAV fixtures and Python reference features. |
+| `classifier_eval.dart` | Active. Runs the **shipping Dart classifier** on labelled WAVs (directory tree or `--manifest labels.csv`). |
+| `session_eval.dart` | Active. Runs the **whole chain** (detector + classifier) over one long recording at several target levels, simulating distance. |
+| `eval.py` | Legacy. Evaluates the retired v2 model JSON only. |
+| `train.py`, `export_model.py`, `model_v2.json`, `assets/models/sleep_audio_v2.json` | Legacy, kept for a future labelled-night dataset. The runtime no longer imports the exported model. |
+
+### Evaluate the current classifier
+
+```bash
+# Real external sanity check (ESC-50 snore/breathing, not a benchmark)
+dart run tools/somnia_audio/classifier_eval.dart \
+    tools/somnia_audio/data/external/esc50 --recursive \
+    --window 1.0 --hop 0.5 --min-active 0.3 \
+    --out tools/somnia_audio/data/classifier_real_windows.json
+
+# Synthetic held-out set
+python -m tools.somnia_audio.synth --out tools/somnia_audio/data/v3_test --per-class 40 --seed 900000
+dart run tools/somnia_audio/classifier_eval.dart \
+    --manifest tools/somnia_audio/data/v3_test/labels.csv \
+    --out tools/somnia_audio/data/classifier_synthetic.json
+```
+
+Measured with those commands:
+
+| Dataset | Metric | v2 model | v3 rules |
+| --- | --- | ---: | ---: |
+| ESC-50 snore, whole clips (40) | snore recall | 0.025 | **0.950** |
+| ESC-50 snore, 1 s windows with ≥0.3 s active | snore recall | 0.033 | **0.867** |
+| ESC-50 breathing (false-positive probe) | → snore | 0.028 | **0.475** |
+| Synthetic held-out (160 clips) | macro-F1 | 0.938 | **0.932** |
+
+The synthetic number dropped slightly; the real-recording recall rose by a
+factor of ~30. That is the intended trade.
+
+---
+
+The rest of this file describes the retired v2 model pipeline. It is kept for a
+future dataset of labelled nights; do not use its numbers in product claims.
 
 > **Warning.** The Phase 1 model is trained on synthetic audio only. The
 > numbers below describe synthetic clips and a small external sanity check.
@@ -14,12 +62,13 @@ model, export it, and evaluate labelled WAV files.
 | File | Purpose |
 | --- | --- |
 | `features.py` | Reference feature extractor and WAV reader. The Dart implementation must match it. |
-| `synth.py` | Deterministic synthetic snore, talk, movement, and ambient clips. |
+| `synth.py` | Deterministic synthetic snore, talk, movement, and ambient clips (v3: physically grounded snore spectrum + iPhone path). |
 | `make_fixtures.py` | Writes the committed test fixtures and Python reference values. |
-| `train.py` | Trains, calibrates, tunes the `unknown` threshold, and writes `data/model_v2.json` plus `data/report_v2.json`. |
-| `export_model.py` | Copies the JSON model to `assets/models/` and generates `lib/services/sleep_audio_model.dart`. |
+| `train.py` | Legacy v2. Trains, calibrates, tunes the `unknown` threshold, and writes `data/model_v2.json` plus `data/report_v2.json`. |
+| `export_model.py` | Legacy v2. Copies the JSON model to `assets/models/` and generates `lib/services/sleep_audio_model.dart`; the runtime does not import it. |
+| `classifier_eval.dart` | Runs the shipping Dart classifier on labelled WAVs (directory tree or `--manifest labels.csv`). |
 | `extract_features.py` | Extracts the 34 features from WAV files to JSONL or CSV. |
-| `eval.py` | Evaluates a labelled directory or manifest, with optional fixed windows. |
+| `eval.py` | Legacy v2. Evaluates the exported model JSON, not the runtime classifier. |
 | `fetch_samples.py` | Downloads the ESC-50 snoring and breathing clips used for the external sanity check. |
 | `baseline_eval.dart` | Runs the v1 classifier snapshot on a synthetic test directory. |
 | `benchmark.dart` | Measures the Dart classifier on 15 s and 45 s clips. |
@@ -148,15 +197,40 @@ The gap is large and expected: the model has never seen a real snore, a real
 room, or a real phone microphone. A real labelled night dataset is required
 before any claim about field performance.
 
+
+### End-to-end check on a real night recording
+
+`session_eval.dart` feeds a continuous stream through the same detector and
+classifier the app uses, mixing the recording into a fixed room-noise floor at
+several target peak levels.  Source used for the checked-in report: a 47 s real
+snoring recording with a long apnoea pause (BMC Medicine, CC BY, via Wikimedia
+Commons), with the apnoea gap silenced so the synthetic room floor is what sits
+between the two snoring bouts.  The file is not committed
+(`data/external/` is gitignored).
+
+```bash
+dart run tools/somnia_audio/session_eval.dart \
+    --source tools/somnia_audio/data/external/snoring_apnoea/snoring_apnoea_gated_16k.wav \
+    --room-db -75 --levels -22,-32,-42,-52,-62 \
+    --snore-ranges 0-7.2,39.8-46.9 \
+    --out tools/somnia_audio/data/session_real_snore_quiet_room.json
+```
+
+Measured with a quiet-bedroom floor of −75 dBFS: both snoring bouts are
+detected and labelled `snore` at −22, −32 and −42 dBFS peak; at −52 the events
+are still detected but labelled `ambient`; at −62 one bout is missed.  With a
+noisy floor of −65 dBFS the reliable range is −12…−32 dBFS.  See
+`data/session_real_snore*.json` and `docs/SLEEP_AUDIO_DSP.md`.
+
 ### Dart runtime
 
-Source: `data/benchmark_report.json`. Measured on the development machine with
+Source: `data/benchmark_report.json` (v3 classifier). Measured on the development machine with
 the Dart JIT, not on a phone.
 
 | Clip | Median | Min | Max |
 | --- | ---: | ---: | ---: |
-| 15 s | 27.63 ms | 27.51 ms | 28.27 ms |
-| 45 s | 83.25 ms | 82.38 ms | 117.63 ms |
+| 15 s | 27.19 ms | 27.14 ms | 27.45 ms |
+| 45 s | 81.63 ms | 80.08 ms | 114.73 ms |
 
 The recorder runs classification in `Isolate.run`, so this work stays off the
 UI isolate. Re-measure an AOT build on a target phone before making UI
@@ -230,3 +304,5 @@ Read `DATASETS.md` before downloading anything. External audio belongs under
 `tools/somnia_audio/data/external/` and is gitignored. ESC-50 is CC BY-NC 3.0:
 research and evaluation only. ICSD is gated, non-commercial, and forbids
 redistribution. Do not commit external clips or derived audio.
+
+

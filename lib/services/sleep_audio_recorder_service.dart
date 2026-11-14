@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
@@ -15,19 +14,31 @@ import 'package:uuid/uuid.dart';
 import '../models/sleep_audio_clip.dart';
 import '../models/sleep_audio_event.dart';
 import 'audio_event_classifier.dart';
+import 'night_sound_detector.dart';
 
 /// Ночной монитор звуков сна.
 ///
-/// Работает на непрерывном PCM-потоке (`record.startStream`): уровень
-/// громкости считается в Dart по RMS, поэтому порог срабатывания и пиковые
-/// значения реально совпадают с тем, что записано в файл. Каждое событие
-/// сохраняется как самостоятельный WAV-файл, пригодный для воспроизведения
-/// без какого-либо дополнительного перекодирования.
+/// Работает на непрерывном PCM-потоке (`record.startStream`): анализ и
+/// детекция события идут в Dart, поэтому то, что записано в файл, полностью
+/// совпадает с тем, что проанализировано. Каждое событие сохраняется отдельным
+/// WAV-файлом, пригодным для воспроизведения без перекодирования.
+///
+/// Ключевые решения:
+///
+/// * Аудиосессия открывается **сразу** при включении монитора, даже если
+///   пользователь выбрал задержку 20 минут. Иначе iOS усыпляет приложение, и
+///   `Timer` задержки не срабатывает до утра — самая частая причина «пустых»
+///   ночей.
+/// * Порог срабатывания относительный: превышение над локальным шумовым полом
+///   (см. [NightSoundDetector]), а не абсолютная громкость, поэтому тихий храп
+///   в тихой комнате фиксируется, а вентилятор — нет.
+/// * Сторожевой таймер и подписка на прерывания возвращают поток после
+///   звонка/Siri/смены маршрута, чтобы монитор не «умирал» молча.
 class SleepAudioRecorderService {
   static const String _prefsKey = 'saved_sleep_audio_clips';
   static const String _eventsKey = 'saved_sleep_audio_events';
   static const String _configDelayKey = 'sleep_audio_delay_minutes';
-  static const String _configThresholdKey = 'sleep_audio_threshold_db';
+  static const String _configSensitivityKey = 'sleep_audio_sensitivity_db';
 
   static const int _sampleRate = 16000;
   static const int _channels = 1;
@@ -38,55 +49,48 @@ class SleepAudioRecorderService {
   static const int _retentionDays = 7;
   static const int _eventRetentionDays = 30;
   static const int _maxEvents = 5000;
-  static const int _maxStorageBytes = 250 * 1024 * 1024; // ~250 МБ
-
-  /// Окно оценки шумового пола и его перцентиль (спецификация v2).
-  static const int _floorWindowSeconds = 60;
-  static const double _floorPercentile = 0.10;
+  static const int _maxStorageBytes = 400 * 1024 * 1024; // ~400 МБ
 
   final AudioRecorder _recorder = AudioRecorder();
-  final AudioPlayer _player = AudioPlayer();
+  final SleepAudioClipPlayer _player;
   final Uuid _uuid = const Uuid();
 
-  // Клинические и системные лимиты (архитектура Moonap)
-  double startThresholdDb = -32.0; // Порог активации записи
-  double prolongThresholdDb = -36.0; // Порог продления записи
-  int silenceTimeoutSeconds = 3; // Таймаут тишины перед остановкой
-  int minDurationSeconds = 2; // Минимум (короче 2 сек отсекаются)
-  int maxDurationSeconds = 45; // Максимальная длина одного фрагмента
-  int maxClipsPerHour = 8; // Лимит записей в час
-  int maxClipsPerSession = 50; // Лимит записей за ночь
-  int delayMinutes = 20; // Задержка перед началом мониторинга
+  /// Каталог записей; в тестах можно подменить временным.
+  final Directory? _recordsDirectoryOverride;
+
+  /// Клинические и системные лимиты (архитектура Moonap).
+  double sensitivityDb = 7.0; // дБ над локальным шумовым полом
+  /// Минимум активной части, чтобы сохранить WAV. Короткие щелчки и удары
+  /// остаются только строкой в статистике, но переворачивание в постели
+  /// обычно длится 0.4-1.5 с и должно попадать в запись.
+  int minClipActiveMs = 400;
+  int maxDurationSeconds = 20; // максимальная длина одного фрагмента
+  int maxClipsPerHour = 150; // предохранитель от бесконечного потока
+  int maxClipsPerSession = 600;
+  int delayMinutes = 20;
 
   bool _isMonitoring = false;
   bool _isWaitingDelay = false;
   bool _isRecordingClip = false;
+  bool _streamActive = false;
   double _currentDb = -100.0;
   String? _lastError;
+  DateTime? _listenFrom;
 
-  /// Адаптивный шумовой пол: 10-й перцентиль уровня чанков за ~60 с.
-  double _noiseFloorDb = -60.0;
-  final List<_LevelSample> _levelHistory = <_LevelSample>[];
-  DateTime _lastFloorUpdate = DateTime.fromMillisecondsSinceEpoch(0);
-
-  DateTime? _clipStartTime;
-  double _currentClipPeakDb = -100.0;
-  BytesBuilder? _clipBuffer;
-  int _clipBytes = 0;
-
-  /// Кольцевой буфер сырых PCM-байтов (~2 секунды до события), чтобы клип
-  /// начинался не с середины звука.
-  final List<Uint8List> _preRoll = [];
-  int _preRollBytes = 0;
+  NightSoundDetector _detector = _makeDetector(7.0, 20);
 
   int _sessionClipCount = 0;
   int _currentHour = -1;
   int _hourlyClipCount = 0;
 
+  int _storageBytes = 0;
+  int _savedSinceStorageCheck = 0;
+
+  Timer? _watchdogTimer;
   Timer? _delayTimer;
-  Timer? _silenceTimer;
-  Timer? _maxDurationTimer;
   StreamSubscription<Uint8List>? _pcmSubscription;
+  StreamSubscription<AudioInterruptionEvent>? _interruptionSubscription;
+  StreamSubscription<void>? _noisySubscription;
 
   /// Ограничитель частоты обновления UI индикатора уровня.
   DateTime _lastLevelNotify = DateTime.fromMillisecondsSinceEpoch(0);
@@ -95,7 +99,17 @@ class SleepAudioRecorderService {
   final List<SleepAudioEvent> _events = [];
   String? _playingClipId;
 
-  // Callback для уведомления UI
+  /// Клип, который сейчас готовится к воспроизведению: файл уже выбран, но
+  /// плеер ещё не начал играть. UI показывает на этой карточке индикатор,
+  /// чтобы нажатие не выглядело «зависшим» переключением.
+  String? _startingClipId;
+
+  /// Токен текущего запроса на воспроизведение. Запрос устаревает, как только
+  /// пользователь выбирает другой клип, поэтому старые операции не могут
+  /// перезаписать актуальное состояние плеера.
+  int _playRequestGeneration = 0;
+  StreamSubscription<void>? _completionSubscription;
+
   VoidCallback? onStateChanged;
 
   bool get isMonitoring => _isMonitoring;
@@ -106,40 +120,56 @@ class SleepAudioRecorderService {
   List<SleepAudioClip> get clips => List.unmodifiable(_clips);
   List<SleepAudioEvent> get events => List.unmodifiable(_events);
   String? get playingClipId => _playingClipId;
-  AudioPlayer get player => _player;
+  String? get startingClipId => _startingClipId;
+  SleepAudioClipPlayer get player => _player;
 
-  /// Текущая оценка шумового пола, dBFS.
-  double get noiseFloorDb => _noiseFloorDb;
+  /// Оценка шумового пола за последнюю минуту, dBFS.
+  double get noiseFloorDb => _detector.noiseFloorDb;
 
-  /// Фактический порог старта: настраиваемая чувствительность (не ниже
-  /// абсолютной границы) и шумовой пол + 10 дБ.
-  double get triggerThresholdDb =>
-      math.max(startThresholdDb, _noiseFloorDb + 10.0);
+  /// Порог срабатывания с учётом фона — для индикатора в UI.
+  double get triggerThresholdDb => _detector.triggerThresholdDb;
 
-  /// Фактический порог удержания: пол + 6 дБ, но не выше старта − 4 дБ.
-  double get holdThresholdDb =>
-      math.max(startThresholdDb - 4.0, _noiseFloorDb + 6.0);
+  /// Шумовой пол в полосе храпа (60–1200 Гц), dBFS.
+  double get lowBandFloorDb => _detector.lowBandFloorDb;
 
-  /// Текст последней ошибки (микрофон/файл/воспроизведение) для UI.
+  int get maxClipsPerSessionLimit => maxClipsPerSession;
+
   String? get lastError => _lastError;
 
-  SleepAudioRecorderService() {
+  SleepAudioRecorderService({
+    SleepAudioClipPlayer? clipPlayer,
+    Directory? recordsDirectoryOverride,
+  })  : _player = clipPlayer ?? JustAudioClipPlayer(),
+        _recordsDirectoryOverride = recordsDirectoryOverride {
     _initPlayer();
   }
 
+  static NightSoundDetector _makeDetector(
+    double sensitivityDb,
+    int maxSeconds,
+  ) {
+    return NightSoundDetector(
+      sampleRate: _sampleRate,
+      preRollSeconds: _preRollSeconds,
+      silenceTimeoutSeconds: 3,
+      maxDurationSeconds: maxSeconds,
+      sensitivityDb: sensitivityDb,
+    );
+  }
+
   void _initPlayer() {
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        _playingClipId = null;
-        onStateChanged?.call();
-      }
+    _completionSubscription = _player.completedStream.listen((_) {
+      if (_playingClipId == null) return;
+      _playingClipId = null;
+      onStateChanged?.call();
     });
   }
 
   Future<void> loadPersistedData() async {
     final prefs = await SharedPreferences.getInstance();
     delayMinutes = prefs.getInt(_configDelayKey) ?? 20;
-    startThresholdDb = prefs.getDouble(_configThresholdKey) ?? -32.0;
+    sensitivityDb = prefs.getDouble(_configSensitivityKey) ?? 7.0;
+    _detector = _makeDetector(sensitivityDb, maxDurationSeconds);
 
     final rawJson = prefs.getString(_prefsKey);
     if (rawJson != null) {
@@ -159,6 +189,7 @@ class SleepAudioRecorderService {
           }
         }
         _clips.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _storageBytes = await _measureStorage();
       } catch (e) {
         debugPrint('Error loading sleep clips: $e');
       }
@@ -192,15 +223,16 @@ class SleepAudioRecorderService {
     onStateChanged?.call();
   }
 
-  Future<void> saveSettings({int? delay, double? threshold}) async {
+  Future<void> saveSettings({int? delay, double? sensitivity}) async {
     final prefs = await SharedPreferences.getInstance();
     if (delay != null) {
       delayMinutes = delay;
       await prefs.setInt(_configDelayKey, delay);
     }
-    if (threshold != null) {
-      startThresholdDb = threshold;
-      await prefs.setDouble(_configThresholdKey, threshold);
+    if (sensitivity != null) {
+      sensitivityDb = sensitivity.clamp(3.0, 16.0);
+      await prefs.setDouble(_configSensitivityKey, sensitivityDb);
+      _detector.sensitivity = sensitivityDb;
     }
     onStateChanged?.call();
   }
@@ -231,8 +263,11 @@ class SleepAudioRecorderService {
   }
 
   Future<Directory> _getRecordsDirectory() async {
-    final docs = await getApplicationDocumentsDirectory();
-    final dir = Directory('${docs.path}${Platform.pathSeparator}sleep_records');
+    final dir = _recordsDirectoryOverride ??
+        Directory(
+          '${(await getApplicationDocumentsDirectory()).path}'
+          '${Platform.pathSeparator}sleep_records',
+        );
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -244,7 +279,9 @@ class SleepAudioRecorderService {
     return clip.absolutePath(dir.path);
   }
 
-  /// Старт ночной сессии мониторинга сна
+  /// Старт ночной сессии мониторинга сна.
+  ///
+  /// `bypassDelay` используется кнопкой «Начать сейчас».
   Future<bool> startMonitoring({bool bypassDelay = false}) async {
     if (_isMonitoring) return true;
 
@@ -256,38 +293,52 @@ class SleepAudioRecorderService {
     }
 
     _isMonitoring = true;
-    _isWaitingDelay = false;
-    _lastError = null;
     _sessionClipCount = 0;
     _hourlyClipCount = 0;
     _currentHour = DateTime.now().hour;
+    _lastError = null;
 
-    if (delayMinutes > 0 && !bypassDelay) {
-      _isWaitingDelay = true;
+    final wait = delayMinutes > 0 && !bypassDelay;
+    _isWaitingDelay = wait;
+    _listenFrom =
+        wait ? DateTime.now().add(Duration(minutes: delayMinutes)) : null;
+
+    // Аудиопоток открывается немедленно в любом случае: только активная
+    // аудиосессия не даёт iOS усыпить приложение вместе с таймером задержки.
+    final started = await _startListening();
+    if (!started) {
+      _isMonitoring = false;
+      _isWaitingDelay = false;
+      _listenFrom = null;
+      _lastError ??= 'Не удалось запустить микрофон.';
       onStateChanged?.call();
-
-      _delayTimer?.cancel();
-      _delayTimer = Timer(Duration(minutes: delayMinutes), () {
-        _isWaitingDelay = false;
-        _startListening();
-        onStateChanged?.call();
-      });
-      return true;
+      return false;
     }
 
-    return await _startListening();
+    _detector.enabled = !wait;
+    _startWatchdog();
+    _listenInterruptions();
+    _delayTimer?.cancel();
+    if (wait) {
+      _delayTimer = Timer(Duration(minutes: delayMinutes), () {
+        if (!_isMonitoring) return;
+        _isWaitingDelay = false;
+        _detector.enabled = true;
+        onStateChanged?.call();
+      });
+    }
+    onStateChanged?.call();
+    return true;
   }
 
-  /// Запуск непрерывного PCM-потока и анализ уровня звука.
-  Future<bool> _startListening() async {
+  /// Запуск непрерывного PCM-потока и анализа уровня звука.
+  Future<bool> _startListening({bool keepFloor = false}) async {
     if (!_isMonitoring) return false;
 
-    _pcmSubscription?.cancel();
-    _preRoll.clear();
-    _preRollBytes = 0;
-    _levelHistory.clear();
-    _noiseFloorDb = -60.0;
-    _lastFloorUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+    await _pcmSubscription?.cancel();
+    _pcmSubscription = null;
+    _streamActive = false;
+    _detector.reset(keepFloor: keepFloor);
 
     try {
       // Измерительный тракт: без AGC, шумоподавления и эхоподавления.
@@ -310,6 +361,8 @@ class SleepAudioRecorderService {
         noiseSuppress: false,
         // Не останавливать ночной монитор при системных уведомлениях.
         audioInterruption: AudioInterruptionMode.none,
+        // ~20 мс на чанк: детектору нужен короткий шаг по времени.
+        streamBufferSize: 1024,
       );
 
       Stream<Uint8List> stream;
@@ -334,62 +387,111 @@ class SleepAudioRecorderService {
         _onPcmChunk,
         onError: (Object error) {
           debugPrint('Sleep audio stream error: $error');
+          _streamActive = false;
           _lastError = 'Ошибка аудиопотока: $error';
           onStateChanged?.call();
+        },
+        onDone: () {
+          _streamActive = false;
         },
         cancelOnError: false,
       );
 
+      _streamActive = true;
       _lastError = null;
       return true;
     } catch (e) {
       debugPrint('Error starting sound monitor: $e');
       _lastError = 'Не удалось запустить микрофон: $e';
-      _isMonitoring = false;
-      _isWaitingDelay = false;
-      onStateChanged?.call();
+      _streamActive = false;
       return false;
     }
+  }
+
+  void _startWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      unawaited(_ensureStreamAlive());
+    });
+  }
+
+  /// iOS может остановить AVAudioEngine после звонка, Siri или смены маршрута,
+  /// не сообщая об ошибке. Раз в 30 секунд проверяем, что поток жив.
+  Future<void> _ensureStreamAlive() async {
+    if (!_isMonitoring) return;
+    if (_streamActive) {
+      try {
+        if (await _recorder.isRecording()) return;
+      } catch (_) {
+        // Падение isRecording() тоже означает, что поток надо поднять заново.
+      }
+    }
+    debugPrint('Night sound monitor watchdog: restarting audio stream');
+    final restarted = await _startListening(keepFloor: true);
+    if (restarted) {
+      if (!_isWaitingDelay) _detector.enabled = true;
+    } else {
+      _lastError = 'Микрофон остановился, перезапуск не удался.';
+      onStateChanged?.call();
+    }
+  }
+
+  void _listenInterruptions() {
+    unawaited(() async {
+      try {
+        final session = await AudioSession.instance;
+        await _interruptionSubscription?.cancel();
+        _interruptionSubscription =
+            session.interruptionEventStream.listen((event) {
+          if (event.begin) {
+            _streamActive = false;
+            return;
+          }
+          if (!_isMonitoring) return;
+          unawaited(_ensureStreamAlive());
+        });
+        await _noisySubscription?.cancel();
+        _noisySubscription = session.becomingNoisyEventStream.listen((_) {
+          if (!_isMonitoring) return;
+          unawaited(_ensureStreamAlive());
+        });
+      } catch (e) {
+        debugPrint('Error listening to audio interruptions: $e');
+      }
+    }());
   }
 
   void _onPcmChunk(Uint8List chunk) {
     if (chunk.isEmpty || !_isMonitoring) return;
 
-    final level = _rmsToDb(chunk);
-    _currentDb = level;
-
     final now = DateTime.now();
-    _updateNoiseFloor(now, level);
+    if (_isWaitingDelay) {
+      final from = _listenFrom;
+      if (from != null && now.isBefore(from)) {
+        // Ждём засыпания, но продолжаем учить шумовой пол.
+        _detector.addChunk(chunk, now: now);
+        _currentDb = _detector.currentDb;
+        _notifyLevel();
+        return;
+      }
+      _isWaitingDelay = false;
+      _detector.enabled = true;
+      onStateChanged?.call();
+    }
+
+    final DetectedClip? completed = _detector.addChunk(chunk, now: now);
+    _currentDb = _detector.currentDb;
+    _isRecordingClip = _detector.isRecording;
+
     if (now.hour != _currentHour) {
       _currentHour = now.hour;
       _hourlyClipCount = 0;
     }
 
-    if (_isRecordingClip) {
-      _appendToClip(chunk);
-      if (level > _currentClipPeakDb) {
-        _currentClipPeakDb = level;
-      }
-
-      if (level >= holdThresholdDb) {
-        _armSilenceTimer();
-      }
-
-      if (_clipDurationSeconds >= maxDurationSeconds) {
-        // Защита от бесконечной записи.
-        _finalizeCurrentClip();
-      } else {
-        _notifyLevel();
-      }
-      return;
+    if (completed != null) {
+      _isRecordingClip = false;
+      unawaited(_finalizeClip(completed));
     }
-
-    if (level >= triggerThresholdDb) {
-      _startClipRecording(chunk);
-    } else {
-      _addToPreRoll(chunk);
-    }
-
     _notifyLevel();
   }
 
@@ -400,34 +502,6 @@ class SleepAudioRecorderService {
     if (now.difference(_lastLevelNotify).inMilliseconds < 200) return;
     _lastLevelNotify = now;
     onStateChanged?.call();
-  }
-
-  /// Оценка шумового пола по тихим чанкам скользящего окна ~60 с.
-  ///
-  /// Перцентиль устойчив к редким событиям, поэтому отдельная фильтрация
-  /// «только тихих кадров» не нужна. Вниз пол идёт быстрее, вверх — медленно:
-  /// так храп не поднимает порог и не маскирует следующие события.
-  void _updateNoiseFloor(DateTime now, double level) {
-    _levelHistory.add(_LevelSample(now, level));
-    final cutoff = now.subtract(const Duration(seconds: _floorWindowSeconds));
-    while (
-        _levelHistory.isNotEmpty && _levelHistory.first.time.isBefore(cutoff)) {
-      _levelHistory.removeAt(0);
-    }
-    if (now.difference(_lastFloorUpdate).inMilliseconds < 1000) return;
-    _lastFloorUpdate = now;
-    if (_levelHistory.length < 5) return;
-
-    final List<double> values =
-        _levelHistory.map((sample) => sample.db).toList()..sort();
-    final int index = (_floorPercentile * (values.length - 1))
-        .floor()
-        .clamp(0, values.length - 1);
-    final double percentile = values[index];
-    final double next = percentile < _noiseFloorDb
-        ? _noiseFloorDb * 0.5 + percentile * 0.5
-        : _noiseFloorDb * 0.9 + percentile * 0.1;
-    _noiseFloorDb = next.clamp(-100.0, -10.0);
   }
 
   bool _canSaveClip() {
@@ -442,87 +516,8 @@ class SleepAudioRecorderService {
     return true;
   }
 
-  double get _clipDurationSeconds =>
-      _clipBytes / (_sampleRate * _channels * _bytesPerSample);
-
-  void _addToPreRoll(Uint8List chunk) {
-    _preRoll.add(chunk);
-    _preRollBytes += chunk.length;
-
-    const maxBytes =
-        _preRollSeconds * _sampleRate * _channels * _bytesPerSample;
-    while (_preRollBytes > maxBytes && _preRoll.isNotEmpty) {
-      final removed = _preRoll.removeAt(0);
-      _preRollBytes -= removed.length;
-    }
-  }
-
-  void _startClipRecording(Uint8List firstChunk) {
-    if (_isRecordingClip) return;
-
-    _isRecordingClip = true;
-    _currentClipPeakDb = _currentDb;
-    _clipBuffer = BytesBuilder(copy: false);
-    _clipBytes = 0;
-
-    final preRollMs =
-        ((_preRollBytes / (_sampleRate * _channels * _bytesPerSample)) * 1000)
-            .round();
-    _clipStartTime = DateTime.now().subtract(Duration(milliseconds: preRollMs));
-
-    for (final chunk in _preRoll) {
-      _clipBuffer!.add(chunk);
-      _clipBytes += chunk.length;
-    }
-    _preRoll.clear();
-    _preRollBytes = 0;
-
-    _clipBuffer!.add(firstChunk);
-    _clipBytes += firstChunk.length;
-
-    _armSilenceTimer();
-
-    _maxDurationTimer?.cancel();
-    _maxDurationTimer = Timer(Duration(seconds: maxDurationSeconds), () {
-      _finalizeCurrentClip();
-    });
-
-    onStateChanged?.call();
-  }
-
-  void _appendToClip(Uint8List chunk) {
-    _clipBuffer?.add(chunk);
-    _clipBytes += chunk.length;
-  }
-
-  void _armSilenceTimer() {
-    _silenceTimer?.cancel();
-    _silenceTimer = Timer(Duration(seconds: silenceTimeoutSeconds), () {
-      _finalizeCurrentClip();
-    });
-  }
-
-  Future<void> _finalizeCurrentClip() async {
-    if (!_isRecordingClip) return;
-
-    _silenceTimer?.cancel();
-    _maxDurationTimer?.cancel();
-
-    final buffer = _clipBuffer;
-    final startTime = _clipStartTime ?? DateTime.now();
-    final peakDb = _currentClipPeakDb;
-    final windowSeconds = _clipDurationSeconds;
-
-    _isRecordingClip = false;
-    _clipStartTime = null;
-    _clipBuffer = null;
-    _clipBytes = 0;
-
-    if (buffer == null) {
-      onStateChanged?.call();
-      return;
-    }
-    final pcm = buffer.takeBytes();
+  Future<void> _finalizeClip(DetectedClip completed) async {
+    final Uint8List pcm = completed.pcm;
     if (pcm.isEmpty) {
       onStateChanged?.call();
       return;
@@ -539,10 +534,12 @@ class SleepAudioRecorderService {
       _lastError = 'Не удалось классифицировать событие: $e';
     }
 
-    // «Минимальная длительность» считается по активной части, а не по
-    // всему окну с пред-записью и хвостом.
-    final activeMs = classification?.features.activeDurationMs ??
-        (windowSeconds * 1000).round();
+    final int detectedActiveMs =
+        (completed.activeSamples * 1000 / _sampleRate).round();
+    // «Минимальная длительность» считается по активной части, а не по всему
+    // окну с пред-записью и хвостом тишины.
+    final int activeMs =
+        classification?.features.activeDurationMs ?? detectedActiveMs;
     if (activeMs < 200) {
       onStateChanged?.call();
       return;
@@ -555,21 +552,23 @@ class SleepAudioRecorderService {
 
     String? savedClipId;
     if (classification != null &&
-        activeMs >= minDurationSeconds * 1000 &&
+        activeMs >= minClipActiveMs &&
         _canSaveClip()) {
       try {
         final recordsDir = await _getRecordsDirectory();
-        final fileName = 'sleep_clip_${startTime.millisecondsSinceEpoch}.wav';
+        final fileName =
+            'sleep_clip_${completed.startTime.millisecondsSinceEpoch}.wav';
         final file =
             File('${recordsDir.path}${Platform.pathSeparator}$fileName');
         await _writeWavFile(file, pcm);
 
+        final double durationSeconds = pcm.length / 2 / _sampleRate;
         final clip = SleepAudioClip(
           id: _uuid.v4(),
           filePath: fileName,
-          timestamp: startTime,
-          durationSeconds: windowSeconds.round().clamp(1, maxDurationSeconds),
-          peakDecibels: peakDb,
+          timestamp: completed.startTime,
+          durationSeconds: durationSeconds.round().clamp(1, maxDurationSeconds),
+          peakDecibels: completed.peakDb,
           soundType: type,
           confidence: confidence,
           segments: classification.segments,
@@ -582,9 +581,15 @@ class SleepAudioRecorderService {
         _clips.insert(0, clip);
         _sessionClipCount++;
         _hourlyClipCount++;
+        _storageBytes += pcm.length + _wavHeaderSize;
+        _savedSinceStorageCheck++;
         savedClipId = clip.id;
+
         await _saveClipsToPrefs();
-        await _enforceRetention();
+        if (_storageBytes > _maxStorageBytes || _savedSinceStorageCheck >= 10) {
+          _savedSinceStorageCheck = 0;
+          await _enforceRetention();
+        }
         _lastError = null;
       } catch (e) {
         debugPrint('Error saving sleep clip: $e');
@@ -592,14 +597,15 @@ class SleepAudioRecorderService {
       }
     }
 
-    // Событие пишется всегда, даже когда WAV не сохранён из-за лимитов.
+    // Событие пишется всегда, даже когда WAV не сохранён из-за лимитов:
+    // статистика ночи не должна зависеть от квоты файлов.
     final event = SleepAudioEvent(
       id: _uuid.v4(),
-      timestamp: startTime,
+      timestamp: completed.startTime,
       durationMs: activeMs,
       soundType: type,
       confidence: confidence,
-      peakDecibels: peakDb,
+      peakDecibels: completed.peakDb,
       noiseFloorDb: features.noiseFloorDb,
       snrDb: features.snrDb,
       savedClipId: savedClipId,
@@ -651,35 +657,20 @@ class SleepAudioRecorderService {
     }
   }
 
-  /// RMS-уровень PCM16LE в dBFS (0 dB — максимальная амплитуда, -100 — тишина).
-  double _rmsToDb(Uint8List chunk) {
-    final sampleCount = chunk.length ~/ 2;
-    if (sampleCount == 0) return -100.0;
-
-    final data = ByteData.sublistView(chunk);
-    double sumSquares = 0.0;
-    for (var i = 0; i < sampleCount; i++) {
-      final sample = data.getInt16(i * 2, Endian.little) / 32768.0;
-      sumSquares += sample * sample;
-    }
-
-    final rms = math.sqrt(sumSquares / sampleCount);
-    if (rms <= 0.0000001) return -100.0;
-    return (20 * (math.log(rms) / math.ln10)).clamp(-100.0, 0.0);
-  }
-
-  /// Остановка ночного мониторинга
+  /// Остановка ночного мониторинга.
   Future<void> stopMonitoring() async {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
     _delayTimer?.cancel();
-    _silenceTimer?.cancel();
-    _maxDurationTimer?.cancel();
+    _delayTimer = null;
 
-    if (_isRecordingClip) {
-      await _finalizeCurrentClip();
-    }
+    _detector.enabled = false;
+    _detector.reset();
+    _isRecordingClip = false;
 
     await _pcmSubscription?.cancel();
     _pcmSubscription = null;
+    _streamActive = false;
 
     try {
       if (await _recorder.isRecording()) {
@@ -691,12 +682,16 @@ class SleepAudioRecorderService {
 
     _isMonitoring = false;
     _isWaitingDelay = false;
-    _isRecordingClip = false;
+    _listenFrom = null;
     _currentDb = -100.0;
-    _preRoll.clear();
-    _preRollBytes = 0;
-    _levelHistory.clear();
-    _noiseFloorDb = -60.0;
+    try {
+      // Release the recording session so the orange microphone indicator goes
+      // away and other audio (music, calls) can take over.
+      final session = await AudioSession.instance;
+      await session.setActive(false);
+    } catch (e) {
+      debugPrint('Error deactivating audio session: $e');
+    }
     onStateChanged?.call();
   }
 
@@ -704,70 +699,132 @@ class SleepAudioRecorderService {
   ///
   /// Возвращает `null` при успехе либо текст ошибки для показа пользователю.
   Future<String?> playClip(SleepAudioClip clip) async {
-    if (_isMonitoring && !_isWaitingDelay) {
+    // Playback reconfigures AVAudioSession to a speech category.  Doing that
+    // while the monitor is running would silently switch the recording chain
+    // away from `measurement` mode (and its disabled AGC), so playback waits
+    // until monitoring is stopped.
+    if (_isMonitoring) {
       _lastError = 'Остановите ночной монитор, чтобы прослушать запись.';
       onStateChanged?.call();
       return _lastError;
     }
 
     if (_playingClipId == clip.id && _player.playing) {
-      await _player.pause();
-      _playingClipId = null;
-      onStateChanged?.call();
+      final request = ++_playRequestGeneration;
+      _startingClipId = null;
+      try {
+        await _player.pause();
+      } catch (e) {
+        if (request != _playRequestGeneration) return null;
+        debugPrint('Error pausing clip: $e');
+        _playingClipId = null;
+        _lastError = 'Не удалось остановить воспроизведение: $e';
+        onStateChanged?.call();
+        return _lastError;
+      }
+      if (request == _playRequestGeneration) {
+        _playingClipId = null;
+        onStateChanged?.call();
+      }
       return null;
     }
 
+    final request = ++_playRequestGeneration;
+
+    // Предыдущая запись уже останавливается, поэтому её подсветку убираем
+    // сразу: загрузка следующего файла занимает время, и если оставить старую
+    // карточку «играющей», экран выглядит зависшим, а повторное нажатие по ней
+    // перезапускает старый клип вместо выбранного.
+    _playingClipId = null;
+    _startingClipId = clip.id;
+    onStateChanged?.call();
+
     try {
       await _player.stop();
+      if (request != _playRequestGeneration) return null;
 
       final path = await _clipAbsolutePath(clip);
+      if (request != _playRequestGeneration) return null;
+
       final file = File(path);
       if (!await file.exists()) {
-        _lastError = 'Файл записи не найден. Возможно, он удалён системой.';
+        if (request != _playRequestGeneration) return null;
         _playingClipId = null;
+        _startingClipId = null;
+        _lastError = 'Файл записи не найден. Возможно, он удалён системой.';
         onStateChanged?.call();
         return _lastError;
       }
       if (await file.length() <= _wavHeaderSize) {
-        _lastError = 'Файл записи повреждён или пуст.';
+        if (request != _playRequestGeneration) return null;
         _playingClipId = null;
+        _startingClipId = null;
+        _lastError = 'Файл записи повреждён или пуст.';
         onStateChanged?.call();
         return _lastError;
       }
 
-      // just_audio не настраивает AVAudioSession category. Без этого звук
-      // уходит в разговорный динамик или глушится переключателем «Бесшумно».
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.speech());
-      await session.setActive(true);
+      await _player.activate();
+      if (request != _playRequestGeneration) return null;
 
       await _player.setFilePath(path);
+      if (request != _playRequestGeneration) return null;
+
+      // Сообщаем UI о старте сразу: `AudioPlayer.play()` завершается только
+      // вместе с воспроизведением, поэтому ждать его здесь нельзя.
+      _startingClipId = null;
       _playingClipId = clip.id;
-      await _player.play();
       _lastError = null;
       onStateChanged?.call();
+      unawaited(_runPlayback(request));
+      return null;
+    } on PlayerInterruptedException {
+      // Другой клип выбран раньше, чем завершилась загрузка текущего.
+      if (request == _playRequestGeneration) {
+        _startingClipId = null;
+        onStateChanged?.call();
+      }
       return null;
     } catch (e) {
+      if (request != _playRequestGeneration) return null;
       debugPrint('Error playing clip: $e');
       _playingClipId = null;
+      _startingClipId = null;
       _lastError = 'Не удалось воспроизвести запись: $e';
       onStateChanged?.call();
       return _lastError;
     }
   }
 
+  Future<void> _runPlayback(int request) async {
+    try {
+      await _player.play();
+    } on PlayerInterruptedException {
+      // Ожидаемое прерывание при переключении на другой клип.
+    } catch (e) {
+      if (request != _playRequestGeneration) return;
+      debugPrint('Error playing clip: $e');
+      _playingClipId = null;
+      _startingClipId = null;
+      _lastError = 'Не удалось воспроизвести запись: $e';
+      onStateChanged?.call();
+    }
+  }
+
   Future<void> stopPlaying() async {
+    ++_playRequestGeneration;
+    _startingClipId = null;
     await _player.stop();
     _playingClipId = null;
     onStateChanged?.call();
   }
 
-  /// Удаление клипа
+  /// Удаление клипа.
   Future<void> deleteClip(String id) async {
     final index = _clips.indexWhere((c) => c.id == id);
     if (index != -1) {
       final clip = _clips[index];
-      if (_playingClipId == id) {
+      if (_playingClipId == id || _startingClipId == id) {
         await stopPlaying();
       }
       await _deleteClipFile(clip);
@@ -777,7 +834,7 @@ class SleepAudioRecorderService {
     }
   }
 
-  /// Удаление всех записей
+  /// Удаление всех записей.
   Future<void> clearAllClips() async {
     await stopPlaying();
     for (final clip in _clips) {
@@ -785,6 +842,7 @@ class SleepAudioRecorderService {
     }
     _clips.clear();
     _events.clear();
+    _storageBytes = 0;
     await _saveClipsToPrefs();
     await _saveEventsToPrefs();
     await _cleanupOrphanFiles();
@@ -795,21 +853,49 @@ class SleepAudioRecorderService {
     try {
       final file = File(await _clipAbsolutePath(clip));
       if (await file.exists()) {
+        final size = await file.length();
         await file.delete();
+        _storageBytes = math.max(0, _storageBytes - size);
       }
     } catch (e) {
       debugPrint('Error deleting sleep clip file: $e');
     }
   }
 
-  /// Ограничение хранения: 7 дней и ~250 МБ.
+  Future<int> _measureStorage() async {
+    var total = 0;
+    for (final clip in _clips) {
+      try {
+        total += await File(await _clipAbsolutePath(clip)).length();
+      } catch (_) {}
+    }
+    return total;
+  }
+
+  int _retentionPriority(SleepSoundType type) {
+    switch (type) {
+      case SleepSoundType.snore:
+        return 3;
+      case SleepSoundType.talk:
+        return 2;
+      case SleepSoundType.movement:
+        return 1;
+      case SleepSoundType.ambient:
+      case SleepSoundType.unknown:
+        return 0;
+    }
+  }
+
+  /// Ограничение хранения: 7 дней и ~400 МБ.
+  ///
+  /// Когда места не хватает, первыми уходят фоновые записи, затем самые
+  /// старые. Так ночь не начинается с удаления храпа.
   Future<void> _enforceRetention() async {
     final cutoff =
         DateTime.now().subtract(const Duration(days: _retentionDays));
 
-    final kept = <SleepAudioClip>[];
     final removed = <SleepAudioClip>[];
-
+    final kept = <SleepAudioClip>[];
     for (final clip in _clips) {
       if (clip.timestamp.isBefore(cutoff)) {
         removed.add(clip);
@@ -818,18 +904,24 @@ class SleepAudioRecorderService {
       }
     }
 
-    var totalBytes = 0;
-    final sized = <SleepAudioClip>[];
-    for (final clip in kept) {
-      var size = 0;
-      try {
-        size = await File(await _clipAbsolutePath(clip)).length();
-      } catch (_) {}
-      if (totalBytes + size <= _maxStorageBytes) {
-        totalBytes += size;
-        sized.add(clip);
-      } else {
+    var total = _storageBytes;
+    if (total > _maxStorageBytes) {
+      final byPriority = List<SleepAudioClip>.from(kept)
+        ..sort((a, b) {
+          final int priority = _retentionPriority(a.soundType)
+              .compareTo(_retentionPriority(b.soundType));
+          return priority != 0 ? priority : a.timestamp.compareTo(b.timestamp);
+        });
+      for (final clip in byPriority) {
+        if (total <= _maxStorageBytes) break;
+        try {
+          final file = File(await _clipAbsolutePath(clip));
+          if (await file.exists()) {
+            total -= await file.length();
+          }
+        } catch (_) {}
         removed.add(clip);
+        kept.remove(clip);
       }
     }
 
@@ -841,7 +933,8 @@ class SleepAudioRecorderService {
 
     _clips
       ..clear()
-      ..addAll(sized);
+      ..addAll(kept);
+    _storageBytes = await _measureStorage();
     await _saveClipsToPrefs();
   }
 
@@ -879,18 +972,68 @@ class SleepAudioRecorderService {
   }
 
   void dispose() {
+    _watchdogTimer?.cancel();
     _delayTimer?.cancel();
-    _silenceTimer?.cancel();
-    _maxDurationTimer?.cancel();
     _pcmSubscription?.cancel();
+    _interruptionSubscription?.cancel();
+    _noisySubscription?.cancel();
+    _completionSubscription?.cancel();
     _recorder.dispose();
-    _player.dispose();
+    unawaited(_player.dispose());
   }
 }
 
-class _LevelSample {
-  final DateTime time;
-  final double db;
+/// Минимальный контракт плеера клипов.
+///
+/// Отделён от [AudioPlayer], чтобы логику переключения записей можно было
+/// проверить без нативного аудиоплагина.
+abstract class SleepAudioClipPlayer {
+  bool get playing;
 
-  const _LevelSample(this.time, this.db);
+  /// Событие завершения текущего клипа.
+  Stream<void> get completedStream;
+
+  Future<void> activate();
+  Future<void> setFilePath(String path);
+  Future<void> play();
+  Future<void> pause();
+  Future<void> stop();
+  Future<void> dispose();
+}
+
+/// Реализация на just_audio для продакшена.
+class JustAudioClipPlayer implements SleepAudioClipPlayer {
+  final AudioPlayer _player = AudioPlayer();
+
+  @override
+  bool get playing => _player.playing;
+
+  @override
+  Stream<void> get completedStream => _player.playerStateStream
+      .where((state) => state.processingState == ProcessingState.completed)
+      .map((_) {});
+
+  @override
+  Future<void> activate() async {
+    // just_audio не настраивает AVAudioSession category. Без этого звук
+    // уходит в разговорный динамик или глушится переключателем «Бесшумно».
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.speech());
+    await session.setActive(true);
+  }
+
+  @override
+  Future<void> setFilePath(String path) => _player.setFilePath(path);
+
+  @override
+  Future<void> play() => _player.play();
+
+  @override
+  Future<void> pause() => _player.pause();
+
+  @override
+  Future<void> stop() => _player.stop();
+
+  @override
+  Future<void> dispose() => _player.dispose();
 }

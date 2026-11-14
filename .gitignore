@@ -1,4 +1,4 @@
-# Miscellaneous
+﻿# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -55,6 +55,8 @@ __pycache__/
 tools/somnia_audio/data/external/
 tools/somnia_audio/data/demo/
 tools/somnia_audio/data/v1_test/
+tools/somnia_audio/data/v3_test/
 tools/somnia_audio/data/synth/
 tools/somnia_audio/data/*.npz
 tools/somnia_audio/data/*.wav
+

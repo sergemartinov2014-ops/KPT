@@ -3,7 +3,45 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../models/sleep_audio_clip.dart';
-import 'sleep_audio_model.dart';
+
+/// Feature vector order.  Keep in sync with `tools/somnia_audio/features.py`;
+/// the order is part of the offline-analysis contract.
+const List<String> kAudioFeatureNames = <String>[
+  'duration_s',
+  'active_duration_s',
+  'snr_db',
+  'duty_cycle',
+  'active_frame_ratio',
+  'onset_rate',
+  'segment_duration_median_ms',
+  'segment_duration_iqr_ms',
+  'gap_cv',
+  'crest_factor',
+  'envelope_kurtosis',
+  'short_broadband_ratio',
+  'zcr_median',
+  'centroid_median_hz',
+  'centroid_iqr_hz',
+  'rolloff_median_hz',
+  'spectral_slope_db_per_khz',
+  'flatness_median',
+  'flatness_iqr',
+  'flux_median',
+  'band_50_150',
+  'band_150_400',
+  'band_400_1000',
+  'band_1000_2500',
+  'band_2500_5000',
+  'band_5000_8000',
+  'voicing_median',
+  'voiced_frame_ratio',
+  'f0_median_hz',
+  'f0_std_semitones',
+  'modulation_syllable_ratio',
+  'modulation_breath_ratio',
+  'modulation_breath_valid',
+  'modulation_peak_hz',
+];
 
 /// Acoustic description of a night-sound event.
 ///
@@ -123,7 +161,7 @@ class AudioFeatures {
     activeEndMs: 0,
   );
 
-  /// Feature vector in [kSleepAudioFeatureNames] order.
+  /// Feature vector in [kAudioFeatureNames] order.
   ///
   /// This order is part of the model contract.  Keep it in sync with
   /// `tools/somnia_audio/features.py`.
@@ -167,8 +205,8 @@ class AudioFeatures {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        for (var i = 0; i < kSleepAudioFeatureNames.length; i++)
-          kSleepAudioFeatureNames[i]: toVector()[i],
+        for (var i = 0; i < kAudioFeatureNames.length; i++)
+          kAudioFeatureNames[i]: toVector()[i],
       };
 
   @override
@@ -219,11 +257,25 @@ class AudioClassification {
   }
 }
 
-/// Night-sound analysis: segmentation, features and a calibrated classifier.
+/// Night-sound analysis: segmentation, features and a DSP classifier.
 ///
 /// Feature extraction is a direct port of `tools/somnia_audio/features.py`.
-/// The model is a multinomial logistic regression exported to Dart, so the
-/// classifier is fully offline and needs no native dependency.
+/// Classification is a transparent score fusion over acoustic cues, not a
+/// trained model:
+///
+/// * a snore is low and pulsed — energy below 400 Hz, low centroid and
+///   zero-crossing rate, low mid-band energy, breathing-rate envelope
+///   modulation;
+/// * speech has mid-band formant energy, 2–8 Hz syllable modulation and many
+///   onsets;
+/// * a rustle is a short, bright, broadband transient;
+/// * everything else is room tone.
+///
+/// The previous classifier was a logistic regression trained on synthetic
+/// audio. On real snoring clips it recalled 3 % of the events: the synthetic
+/// spectrum was far too bright and harmonic, so the learned decision boundary
+/// never saw a real snore. Score fusion is slower to overfit a synthetic
+/// generator and can be inspected feature by feature on a device.
 class AudioEventClassifier {
   static const int frameSize = 400; // 25 ms at 16 kHz
   static const int hopSize = 160; // 10 ms
@@ -235,6 +287,16 @@ class AudioEventClassifier {
 
   static const double _eps = 1e-12;
   static const double _minDb = -100.0;
+
+  /// Softmax temperature applied to the fused scores.  Higher values make the
+  /// reported confidence less sharp.
+  static const double scoreTemperature = 1.6;
+
+  /// Confidence below which the clip is reported as [SleepSoundType.unknown].
+  static const double unknownConfidenceThreshold = 0.34;
+
+  /// Below this much active audio there is nothing to classify.
+  static const int minimumActiveMs = 150;
 
   static final Float64List _hann400 = _hann(frameSize);
   static final Float64List _cosTable = _cosTableFor(fftSize);
@@ -284,26 +346,28 @@ class AudioEventClassifier {
       sampleEnd: analysis.sampleCount,
       durationMs: analysis.durationMs,
     );
-    final List<double> probabilities = _predict(features);
+    if (features.activeDurationMs < minimumActiveMs) {
+      return AudioClassification(
+        type: SleepSoundType.ambient,
+        confidence: 0,
+        features: features,
+        probabilities: const <SleepSoundType, double>{
+          SleepSoundType.snore: 0,
+          SleepSoundType.talk: 0,
+          SleepSoundType.movement: 0,
+          SleepSoundType.ambient: 1,
+        },
+      );
+    }
+    final List<AudioSegment> segments = _buildSegments(analysis);
+    final List<double> probabilities = _probabilities(features);
     var best = 0;
     for (var i = 1; i < probabilities.length; i++) {
       if (probabilities[i] > probabilities[best]) best = i;
     }
-    final Map<SleepSoundType, double> byType = <SleepSoundType, double>{
-      for (var i = 0; i < probabilities.length; i++)
-        _typeForModelClass(kSleepAudioModelClasses[i]): probabilities[i],
-    };
-    final List<AudioSegment> segments = _buildSegments(analysis);
-    var type = _typeForModelClass(kSleepAudioModelClasses[best]);
+    var type = _typeForIndex(best);
     var confidence = probabilities[best];
-
-    if (confidence < kSleepAudioUnknownThreshold) {
-      type = SleepSoundType.unknown;
-    }
-
-    // A single low-confidence snore is not confirmed; repeatability or a
-    // confident segment is required by the v2 spec.
-    if (type == SleepSoundType.snore && !_snoreConfirmed(segments)) {
+    if (confidence < unknownConfidenceThreshold) {
       type = SleepSoundType.unknown;
     }
 
@@ -311,7 +375,10 @@ class AudioEventClassifier {
       type: type,
       confidence: confidence,
       features: features,
-      probabilities: byType,
+      probabilities: <SleepSoundType, double>{
+        for (var i = 0; i < probabilities.length; i++)
+          _typeForIndex(i): probabilities[i],
+      },
       segments: segments,
     );
   }
@@ -326,60 +393,122 @@ class AudioEventClassifier {
 
   // ------------------------------------------------------------- prediction
 
-  static List<double> _predict(AudioFeatures features) {
-    final List<double> x = features.toVector();
-    final int classCount = kSleepAudioModelClasses.length;
-    final List<double> logits = List<double>.filled(classCount, 0);
-    for (var c = 0; c < classCount; c++) {
-      var value = kSleepAudioModelIntercept[c];
-      final List<double> row = kSleepAudioModelCoefficients[c];
-      for (var i = 0; i < x.length; i++) {
-        final double normalized =
-            (x[i] - kSleepAudioModelMean[i]) / kSleepAudioModelScale[i];
-        value += row[i] * normalized;
-      }
-      logits[c] = value / kSleepAudioModelTemperature;
+  /// Class order of the score vector.
+  static const List<SleepSoundType> classOrder = <SleepSoundType>[
+    SleepSoundType.snore,
+    SleepSoundType.talk,
+    SleepSoundType.movement,
+    SleepSoundType.ambient,
+  ];
+
+  static SleepSoundType _typeForIndex(int index) => classOrder[index];
+
+  /// Fused, unnormalised evidence for each class, in [classOrder].
+  ///
+  /// Exposed for tests and for an on-device diagnostics screen: a wrong label
+  /// can be traced to the cue that produced it.
+  static List<double> scores(AudioFeatures f) {
+    if (f.activeDurationMs < minimumActiveMs || f.durationMs <= 0) {
+      return const <double>[0, 0, 0, 4.0];
     }
-    final double maxLogit = logits.reduce(math.max);
-    double sum = 0;
-    for (final value in logits) {
-      sum += math.exp(value - maxLogit);
+    final double low = f.bandRatios[0] + f.bandRatios[1];
+    final double mid = f.bandRatios[2] + f.bandRatios[3];
+    final double high = f.bandRatios[4] + f.bandRatios[5];
+    final double activeS = f.activeDurationMs / 1000.0;
+    final double breath = f.modulationBreathValid ? f.modulationBreath : 0.0;
+
+    // Real snores come in two shapes: a low rumble (most clip recordings) and
+    // a brighter, raspier snore close to the microphone (a phone on the
+    // nightstand).  The low-band terms catch the first; the breathing-rate
+    // pulse plus the absence of syllable rhythm catch the second.
+    var snore = 1.5 * _up(low, 0.30, 0.65) +
+        1.0 * _down(f.centroidHz, 1300.0, 300.0) +
+        1.2 * _down(f.zcr, 0.14, 0.04) +
+        1.0 * _down(f.flatness, 0.22, 0.03) +
+        1.6 * _down(mid, 0.40, 0.10) +
+        0.6 * _up(activeS, 0.30, 1.00) +
+        0.5 * _down(f.shortBroadbandRatio, 0.15, 0.0) +
+        0.5 * _up(breath, 0.10, 0.35) +
+        1.0 * _down(f.modulationSyllable, 0.30, 0.08) +
+        0.3 * _up(f.voicedFrameRatio, 0.30, 0.70);
+
+    var talk = 2.0 * _up(mid, 0.40, 0.70) +
+        2.0 * _up(f.modulationSyllable, 0.40, 0.70) +
+        1.2 * _up(f.onsetRate, 4.0, 9.0) +
+        0.8 * _up(f.centroidHz, 800.0, 1300.0) +
+        0.6 * _up(f.voicedFrameRatio, 0.70, 0.95) +
+        0.6 * _down(low, 0.60, 0.20) +
+        0.5 * _down(f.flatness, 0.30, 0.10);
+
+    var movement = 2.2 * _up(f.centroidHz, 1800.0, 3000.0) +
+        2.0 * _up(f.flatness, 0.18, 0.35) +
+        1.5 * _up(f.zcr, 0.22, 0.38) +
+        1.0 * _up(high, 0.15, 0.45) +
+        0.8 * _up(f.envelopeKurtosis, 2.5, 6.0) +
+        0.8 * _up(f.centroidIqrHz, 150.0, 500.0) +
+        0.6 * _down(activeS, 1.5, 0.3) +
+        0.5 * _up(f.shortBroadbandRatio, 0.02, 0.15) +
+        0.4 * _down(breath, 0.40, 0.10);
+
+    final double ambient = 1.5 +
+        1.0 * _down(f.flux, 0.45, 0.20) +
+        1.0 * _down(f.crestFactor, 2.2, 1.4) +
+        0.8 * _down(f.modulationSyllable, 0.30, 0.10) +
+        0.6 * _up(f.activeRatio, 0.55, 0.90) +
+        0.5 * _down(f.shortBroadbandRatio, 0.10, 0.0) +
+        1.0 * _steadyBonus(breath, f.modulationBreathValid);
+
+    // When the active span is long enough to resolve the breathing band, a
+    // snore must pulse.  A 100 Hz hum or a fan has no such pulse and is fully
+    // described by the room-tone score.
+    if (f.modulationBreathValid) {
+      snore *= 0.25 + 0.75 * _up(breath, 0.06, 0.25);
     }
-    final List<double> result = List<double>.filled(classCount, 0);
-    for (var i = 0; i < classCount; i++) {
-      result[i] = math.exp(logits[i] - maxLogit) / sum;
+    // Speech is syllabic by definition.  A mid-band, voiced sound without any
+    // 2–8 Hz rhythm is much more likely a raspy snore than a conversation.
+    talk *= 0.45 + 0.55 * _up(f.modulationSyllable, 0.08, 0.30);
+
+    // A silent or almost silent window has centroid 0, zcr 0 and flatness 0 —
+    // without this gate every empty window would look like a perfect snore.
+    final double evidence = _up(activeS, 0.15, 0.50);
+    snore *= evidence;
+    talk *= evidence;
+    movement *= _up(activeS, 0.05, 0.25);
+
+    return <double>[snore, talk, movement, ambient];
+  }
+
+  /// Room tone bonus for a steady envelope: high when the breathing band is
+  /// resolvable and shows no pulse.
+  static double _steadyBonus(double breath, bool valid) {
+    if (!valid) return 0;
+    return _down(breath, 0.35, 0.05);
+  }
+
+  /// Softmax over [scores] with [scoreTemperature].
+  static List<double> _probabilities(AudioFeatures features) {
+    final List<double> raw = scores(features);
+    final double maxScore = raw.reduce(math.max);
+    double sum = 0.0;
+    for (final value in raw) {
+      sum += math.exp((value - maxScore) / scoreTemperature);
+    }
+    final List<double> result = List<double>.filled(raw.length, 0);
+    for (var i = 0; i < raw.length; i++) {
+      result[i] = math.exp((raw[i] - maxScore) / scoreTemperature) / sum;
     }
     return result;
   }
 
-  static SleepSoundType _typeForModelClass(String name) {
-    switch (name) {
-      case 'snore':
-        return SleepSoundType.snore;
-      case 'talk':
-        return SleepSoundType.talk;
-      case 'movement':
-        return SleepSoundType.movement;
-      case 'ambient':
-      default:
-        return SleepSoundType.ambient;
-    }
+  /// Linear ramp from 0 at [lo] to 1 at [hi].
+  static double _up(double value, double lo, double hi) {
+    if (!value.isFinite || hi <= lo) return 0;
+    return ((value - lo) / (hi - lo)).clamp(0.0, 1.0);
   }
 
-  static bool _snoreConfirmed(List<AudioSegment> segments) {
-    final List<AudioSegment> snores = segments
-        .where((segment) =>
-            segment.type == SleepSoundType.snore && segment.confidence >= 0.6)
-        .toList();
-    if (snores.isEmpty) return false;
-    if (snores.length >= 2) {
-      for (var i = 1; i < snores.length; i++) {
-        final int period = snores[i].startMs - snores[i - 1].startMs;
-        if (period >= 2000 && period <= 7000) return true;
-      }
-    }
-    return snores.any((segment) => segment.endMs - segment.startMs >= 500);
-  }
+  /// Linear ramp from 1 at [lo] to 0 at [hi].
+  static double _down(double value, double hi, double lo) =>
+      1.0 - _up(value, lo, hi);
 
   // ------------------------------------------------------------- segments
 
@@ -418,7 +547,7 @@ class AudioEventClassifier {
       if (windowFeatures.activeDurationMs < 100) {
         raw.add(<double>[0, 0, 0, 1]);
       } else {
-        raw.add(_predict(windowFeatures));
+        raw.add(_probabilities(windowFeatures));
       }
       ends.add(end);
     }
@@ -449,9 +578,9 @@ class AudioEventClassifier {
         if (probabilities[c] > probabilities[best]) best = c;
       }
       final double confidence = probabilities[best];
-      final SleepSoundType type = confidence < kSleepAudioUnknownThreshold
+      final SleepSoundType type = confidence < unknownConfidenceThreshold
           ? SleepSoundType.unknown
-          : _typeForModelClass(kSleepAudioModelClasses[best]);
+          : _typeForIndex(best);
       final int start = starts[i];
       final int end = ends[i];
       if (segments.isNotEmpty &&
@@ -664,7 +793,10 @@ class AudioEventClassifier {
       }
     }
 
-    final double noiseFloor = _percentile(frameDb, 0.10);
+    // 5th percentile, not 10th: a maximum-length clip of continuous snoring
+    // can contain less than 10% quiet audio, and a contaminated floor would
+    // hide every active frame of the very event we are classifying.
+    final double noiseFloor = _percentile(frameDb, 0.05);
     final double startThreshold = noiseFloor + 10.0;
     final double holdThreshold = noiseFloor + 6.0;
     final Uint8List mask = Uint8List(frameCount);
@@ -813,7 +945,13 @@ class AudioEventClassifier {
       final double d = value - mean;
       variance += d * d;
     }
-    if (variance <= _eps) return const _Modulation(0, 0, 0, false);
+    // A perfectly steady envelope is a valid measurement, not a missing one:
+    // it is exactly how a fan or a mains hum looks.  Only a span too short to
+    // resolve the breathing band is reported as invalid.
+    final bool breathValid = envelope.length / frameRate >= 3.0;
+    if (variance <= _eps) {
+      return _Modulation(0, 0, 0, breathValid);
+    }
 
     final int nfft = _nextPowerOfTwo(math.max(64, envelope.length));
     final Float64List re = Float64List(nfft);
@@ -848,10 +986,20 @@ class AudioEventClassifier {
       }
     }
     if (total <= _eps) return const _Modulation(0, 0, 0, false);
-    final bool valid = envelope.length / frameRateHz >= 8.0;
+    // Breathing-band modulation is only meaningful once the active span holds
+    // at least two breath cycles; below ~3 s a 0.15 Hz component cannot be
+    // resolved, so it is reported as invalid instead of as a noisy ratio.
+    final bool valid = envelope.length / frameRateHz >= 3.0;
+    // A band *ratio* is meaningless when the envelope barely varies: the step
+    // at the start and end of a steady hum is a few frames out of hundreds,
+    // yet it owns most of an almost-zero total power.  Require a real
+    // modulation depth before reporting a breathing component.
+    final double coefficientOfVariation =
+        mean > _eps ? math.sqrt(variance / envelope.length) / mean : 0.0;
+    final bool pulsing = coefficientOfVariation >= 0.08;
     return _Modulation(
       syllable / total,
-      valid ? breath / total : 0,
+      valid && pulsing ? breath / total : 0,
       peakHz,
       valid,
     );

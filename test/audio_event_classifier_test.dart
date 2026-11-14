@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:somnia/models/sleep_audio_clip.dart';
 import 'package:somnia/services/audio_event_classifier.dart';
-import 'package:somnia/services/sleep_audio_model.dart';
 
 import 'support/audio_fixtures.dart';
 import 'support/audio_test_signals.dart';
 
 void main() {
   final Map<String, dynamic> manifest = loadAudioFixtureManifest();
+  final List<dynamic> clips = manifest['clips'] as List<dynamic>;
   final List<dynamic> synthClips = manifest['synth_clips'] as List<dynamic>;
 
   group('признаки', () {
@@ -21,12 +21,24 @@ void main() {
       expect(f.flatness, lessThan(0.2));
     });
 
-    test('огибающая 1 Гц даёт пик модуляционного спектра на 1 Гц', () {
+    test('огибающая 0.4 Гц даёт энергию в полосе дыхания', () {
       final f = AudioEventClassifier.analyzeFeatures(
-        withQuiet(amTone(modHz: 1, seconds: 4)),
+        withQuiet(amTone(modHz: 0.4, seconds: 6)),
       );
-      expect(f.modulationPeakHz, closeTo(1, 0.15));
-      expect(f.modulationBreathValid, isFalse); // короче 8 с
+      expect(f.modulationPeakHz, closeTo(0.4, 0.2));
+      // The breathing band is measured once the active span holds at least
+      // two cycles (~3 s), so a 6 s envelope is valid.
+      expect(f.modulationBreathValid, isTrue);
+      expect(f.modulationBreath, greaterThan(0.2));
+    });
+
+    test('ровный гул: полоса дыхания валидна, но модуляции нет', () {
+      final f = AudioEventClassifier.analyzeFeatures(
+        withQuiet(tone(freq: 100, seconds: 6, amplitude: 0.05)),
+      );
+      expect(f.modulationBreathValid, isTrue,
+          reason: 'steady sound must be measurable, not "unknown"');
+      expect(f.modulationBreath, lessThan(0.05));
     });
 
     test('тишина не даёт NaN и активных кадров', () {
@@ -51,17 +63,17 @@ void main() {
     });
   });
 
-  group('классификация синтетических клипов как в рекордере', () {
-    for (final dynamic raw in synthClips) {
+  group('классификация фикстур', () {
+    for (final dynamic raw in [...clips, ...synthClips]) {
       final Map<String, dynamic> clip = raw as Map<String, dynamic>;
-      final String truth = clip['true_label'] as String;
+      final String expected = clip['expected_type'] as String;
+      final String file = clip['file'] as String;
 
-      test(truth, () {
+      test('$file → $expected', () {
         final r = AudioEventClassifier.classify(
-          readWavPcm('$kAudioFixtureDirectory/${clip['file']}'),
+          readWavPcm('$kAudioFixtureDirectory/$file'),
         );
-        expect(r.type.name, clip['expected_type']);
-        expect(r.type.name, truth);
+        expect(r.type.name, expected);
         expect(r.probabilities, isNotEmpty);
         expect(
           r.probabilities.values.reduce((a, b) => a + b),
@@ -71,16 +83,48 @@ void main() {
     }
   });
 
-  test('низкая уверенность даёт unknown, а не ложный храп', () {
-    final clip = (manifest['clips'] as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .firstWhere((item) => item['file'] == 'snore.wav');
-    final r = AudioEventClassifier.classify(
-      readWavPcm('$kAudioFixtureDirectory/snore.wav'),
-    );
-    expect(clip['expected_type'], 'unknown');
-    expect(r.type, SleepSoundType.unknown);
-    expect(r.confidence, lessThan(kSleepAudioUnknownThreshold));
+  group('защита от типичных ложных срабатываний', () {
+    test('громкий шорох не классифицируется как храп', () {
+      final pcm = withQuiet(
+        rustleSignal(seconds: 3, amplitude: 0.6),
+        preSeconds: 1.5,
+        postSeconds: 1.5,
+      );
+      final r = AudioEventClassifier.classify(pcm);
+      expect(r.type, isNot(SleepSoundType.snore));
+    });
+
+    test('гул вентилятора 100 Гц не классифицируется как храп', () {
+      final pcm = withQuiet(
+        tone(freq: 100, seconds: 6, amplitude: 0.05),
+        preSeconds: 1.5,
+        postSeconds: 1.5,
+      );
+      final r = AudioEventClassifier.classify(pcm);
+      expect(r.type, isNot(SleepSoundType.snore));
+    });
+
+    test('тихий низкочастотный храп распознаётся', () {
+      final pcm = withQuiet(
+        snoreSignal(seconds: 8, amplitude: 0.04),
+        preSeconds: 1.0,
+        postSeconds: 1.0,
+      );
+      final r = AudioEventClassifier.classify(pcm);
+      expect(r.type, SleepSoundType.snore);
+      expect(r.confidence, greaterThan(0.5));
+    });
+
+    test('щелчок короче 150 мс активного звука остаётся фоном', () {
+      final pcm = withQuiet(
+        tone(freq: 2000, seconds: 0.04, amplitude: 0.8),
+        preSeconds: 1.5,
+        postSeconds: 1.5,
+      );
+      final r = AudioEventClassifier.classify(pcm);
+      expect(r.type, SleepSoundType.ambient);
+      expect(r.confidence, lessThanOrEqualTo(0.5));
+    });
   });
 
   test('тишина — ambient с нулевой уверенностью', () {

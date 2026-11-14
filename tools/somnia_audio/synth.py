@@ -1,10 +1,30 @@
 """Synthetic night-sound generator for Somnia.
 
-The generator is intentionally *not* a claim about real-world accuracy: it
-exists to pin feature definitions, train an initial model and run measurable
-experiments before labelled nights are available.
+This generator produces the four model classes with **physically grounded**
+spectral shapes, a phone-microphone transfer path and a bedroom noise floor.
+It exists because no labelled night recordings are available yet: the numbers
+it supports are a pipeline check and a design tool, not a real-world accuracy
+claim.
 
-Classes: ``snore``, ``talk``, ``movement``, ``ambient``.
+Design references (well-known acoustic properties, no dataset was used):
+
+* A snore is a low-frequency, pulsed sound: energy is concentrated around
+  50–500 Hz, the fundamental is 40–150 Hz, and the amplitude is modulated by the
+  breathing cycle at roughly 0.15–0.8 Hz.  It is not a clean harmonic tone —
+  tissue vibration adds broadband turbulence, which is why the spectral
+  flatness of a real snore is much higher than a musical tone's.
+* Speech has syllable modulation at 2–8 Hz, formant energy in 300–3000 Hz and
+  fast spectral change between phonemes.
+* Bed movement is a short (0.05–1 s) broadband transient, often with a low
+  thump from the bed frame.
+* A bedroom at night is a stationary noise floor (fan, fridge, traffic) with a
+  slow level drift and mains hum.
+
+The microphone path matters: an iPhone records through a high-pass around
+60–100 Hz and an anti-alias/room low-pass well below 8 kHz, and the level of a
+snore 1 m away is tens of dB below full scale.  `phone_path()` applies that
+path to the mix, so the classifier sees levels and spectra that are comparable
+to real device clips.
 
 CLI::
 
@@ -37,13 +57,20 @@ def _seconds(value: float) -> int:
     return int(round(value * SAMPLE_RATE))
 
 
+def _normalize(signal: np.ndarray) -> np.ndarray:
+    return signal / (np.max(np.abs(signal)) + 1e-9)
+
+
+def _freqs(n: int) -> np.ndarray:
+    return np.fft.rfftfreq(n, 1.0 / SAMPLE_RATE)
+
+
 def _pink_noise(n: int, rng: np.random.Generator) -> np.ndarray:
     white = rng.standard_normal(n)
     spectrum = np.fft.rfft(white)
-    freqs = np.fft.rfftfreq(n, 1.0 / SAMPLE_RATE)
-    shape = 1.0 / np.sqrt(np.maximum(freqs, 20.0))
+    shape = 1.0 / np.sqrt(np.maximum(_freqs(n), 20.0))
     shaped = np.fft.irfft(spectrum * shape, n)
-    return shaped / (np.max(np.abs(shaped)) + 1e-9)
+    return _normalize(shaped)
 
 
 def _band_noise(
@@ -51,25 +78,30 @@ def _band_noise(
     rng: np.random.Generator,
     low: float,
     high: float,
-    soft: float = 1.0,
+    order: float = 2.0,
 ) -> np.ndarray:
-    white = rng.standard_normal(n)
-    spectrum = np.fft.rfft(white)
-    freqs = np.fft.rfftfreq(n, 1.0 / SAMPLE_RATE)
-    low_mask = 1.0 / (1.0 + np.exp(np.clip(-(freqs - low) / max(1.0, soft), -60.0, 60.0)))
-    high_mask = 1.0 / (1.0 + np.exp(np.clip((freqs - high) / max(1.0, soft), -60.0, 60.0)))
-    shaped = np.fft.irfft(spectrum * low_mask * high_mask, n)
-    return shaped / (np.max(np.abs(shaped)) + 1e-9)
+    spectrum = np.fft.rfft(rng.standard_normal(n))
+    freqs = _freqs(n)
+    low_mask = 1.0 / (1.0 + (low / np.maximum(freqs, 1e-6)) ** order)
+    high_mask = 1.0 / (1.0 + (freqs / high) ** order)
+    return _normalize(np.fft.irfft(spectrum * low_mask * high_mask, n))
 
 
-def _lowpass(signal: np.ndarray, cutoff: float) -> np.ndarray:
+def _lowpass(signal: np.ndarray, cutoff: float, order: float = 2.0) -> np.ndarray:
     spectrum = np.fft.rfft(signal)
-    freqs = np.fft.rfftfreq(signal.size, 1.0 / SAMPLE_RATE)
-    mask = 1.0 / (1.0 + (freqs / max(20.0, cutoff)) ** 2)
-    return np.fft.irfft(spectrum * mask, signal.size)
+    return np.fft.irfft(spectrum / (1.0 + (_freqs(signal.size) / cutoff) ** order), signal.size)
 
 
-def _envelope_pulses(
+def _highpass(signal: np.ndarray, cutoff: float, order: float = 2.0) -> np.ndarray:
+    spectrum = np.fft.rfft(signal)
+    freqs = _freqs(signal.size)
+    return np.fft.irfft(
+        spectrum * (freqs / cutoff) ** order / (1.0 + (freqs / cutoff) ** order),
+        signal.size,
+    )
+
+
+def _pulses(
     n: int,
     rng: np.random.Generator,
     rate: float,
@@ -81,26 +113,21 @@ def _envelope_pulses(
     """Asymmetric pulse envelope at ``rate`` Hz (breathing or syllable rate)."""
     envelope = np.zeros(n)
     period = 1.0 / max(0.05, rate)
-    start = rng.uniform(0.0, period * 0.5)
     time = np.arange(n) / SAMPLE_RATE
-    index = 0
-    while True:
-        onset = start + index * period + rng.normal(0.0, jitter)
-        if onset > time[-1]:
-            break
-        length = period * duty * rng.uniform(0.7, 1.3)
+    onset = rng.uniform(0.0, period * 0.5)
+    while onset < time[-1]:
         a = max(1, int(attack * SAMPLE_RATE))
         r = max(1, int(release * SAMPLE_RATE * rng.uniform(0.7, 1.4)))
-        width = max(a + r + 4, int(length * SAMPLE_RATE))
+        width = max(a + r + 4, int(period * duty * rng.uniform(0.7, 1.3) * SAMPLE_RATE))
         local = np.zeros(width)
-        local[:a] = np.linspace(0.0, 1.0, a, endpoint=False)
-        local[a : a + r] = np.linspace(1.0, 0.0, r, endpoint=False) ** 1.7
+        local[:a] = np.linspace(0.0, 1.0, a, endpoint=False) ** 1.4
+        local[a : a + r] = np.linspace(1.0, 0.0, r, endpoint=False) ** 1.9
         begin = max(0, int(onset * SAMPLE_RATE))
         end = min(n, begin + width)
         if begin >= n:
             break
         envelope[begin:end] = np.maximum(envelope[begin:end], local[: end - begin])
-        index += 1
+        onset += period * rng.uniform(0.85, 1.15) + rng.normal(0.0, jitter)
     return envelope
 
 
@@ -108,28 +135,28 @@ def _harmonic_buzz(
     n: int,
     rng: np.random.Generator,
     f0: float,
-    formants: tuple[float, float, float],
+    formants: tuple[float, ...],
     max_hz: float = 4500.0,
-    jitter_hz: float = 1.5,
+    tilt: float = 1.2,
 ) -> np.ndarray:
-    """Glottal-ish harmonic series shaped by three formants."""
+    """Glottal-ish harmonic series shaped by formants."""
     time = np.arange(n, dtype=np.float64) / SAMPLE_RATE
-    # A slow, smooth F0 contour.
     contour = f0 * (
         1.0
-        + 0.03 * np.sin(2 * math.pi * rng.uniform(0.15, 0.5) * time + rng.uniform(0, 6))
+        + 0.035
+        * np.sin(2 * math.pi * rng.uniform(0.15, 0.5) * time + rng.uniform(0, 6))
     )
     phase = 2 * math.pi * np.cumsum(contour) / SAMPLE_RATE
     output = np.zeros(n)
     harmonic = 1
     while harmonic * f0 <= max_hz and harmonic <= 80:
-        frequency = harmonic * f0 + rng.normal(0.0, jitter_hz)
-        weight = 1.0 / harmonic
+        frequency = harmonic * f0
+        weight = 1.0 / harmonic**tilt
         for formant in formants:
-            weight += 2.2 * math.exp(-((frequency - formant) / 260.0) ** 2)
+            weight += 2.0 * math.exp(-((frequency - formant) / 260.0) ** 2)
         output += weight * np.sin(harmonic * phase + rng.uniform(0, 2 * math.pi))
         harmonic += 1
-    return output / (np.max(np.abs(output)) + 1e-9)
+    return _normalize(output)
 
 
 def _room_noise(duration: float, rng: np.random.Generator, level_db: float) -> np.ndarray:
@@ -141,16 +168,29 @@ def _room_noise(duration: float, rng: np.random.Generator, level_db: float) -> n
         + 0.12 * np.sin(2 * math.pi * 100.0 * time + 0.7)
         + 0.05 * np.sin(2 * math.pi * 150.0 * time + 1.1)
     )
-    mix = noise + 0.10 * hum
-    mix = _lowpass(mix, rng.uniform(3500.0, 7500.0))
+    mix = _lowpass(noise + 0.10 * hum, rng.uniform(3000.0, 7000.0))
     amplitude = 10.0 ** (level_db / 20.0)
     return mix * amplitude / (np.sqrt(np.mean(mix**2)) + 1e-9)
 
 
 def _distance(signal: np.ndarray, meters: float) -> np.ndarray:
-    attenuation = 1.0 / max(0.3, meters)
-    cutoff = 8000.0 / max(1.0, meters**0.8)
+    """Distance attenuation plus air/room high-frequency loss."""
+    attenuation = 1.0 / max(0.4, meters)
+    cutoff = 6500.0 / max(1.0, meters**0.7)
     return _lowpass(signal, cutoff) * attenuation
+
+
+def phone_path(signal: np.ndarray, rng: np.random.Generator | None = None) -> np.ndarray:
+    """Apply the approximate iPhone recording path.
+
+    The built-in microphone rolls off below ~70 Hz and above ~7 kHz; the DSP
+    chain does not add gain (measurement mode disables AGC), so the level of
+    the clip is whatever the room produced.
+    """
+    generator = rng if rng is not None else np.random.default_rng(0)
+    out = _highpass(signal, generator.uniform(55.0, 95.0))
+    out = _lowpass(out, generator.uniform(5600.0, 7100.0))
+    return out
 
 
 def _fit(signal: np.ndarray, seconds: float) -> np.ndarray:
@@ -163,39 +203,69 @@ def _fit(signal: np.ndarray, seconds: float) -> np.ndarray:
 # ---------------------------------------------------------------- classes
 
 
+def _tilt(signal: np.ndarray, exponent: float, pivot: float = 100.0) -> np.ndarray:
+    """Apply a 1/f^exponent spectral tilt (snore energy falls with frequency)."""
+    if exponent <= 0:
+        return signal
+    spectrum = np.fft.rfft(signal)
+    freqs = np.maximum(_freqs(signal.size), 20.0)
+    return np.fft.irfft(spectrum * (freqs / pivot) ** (-exponent), signal.size)
+
+
 def _snore(duration: float, rng: np.random.Generator) -> np.ndarray:
-    time = np.arange(_seconds(duration)) / SAMPLE_RATE
-    breathing_rate = rng.uniform(0.22, 0.55)
-    envelope = _envelope_pulses(
-        time.size,
+    """Low, pulsed, turbulent snore.
+
+    Measured character of a real snore (see `test/fixtures` notes): spectral
+    centroid of a few hundred Hz, most energy in 50–400 Hz, a fundamental near
+    40–100 Hz, substantial broadband component (flatness is low but not tonal),
+    and an envelope that follows the breath at ~0.15–0.8 Hz.
+    """
+    n = _seconds(duration)
+    time = np.arange(n) / SAMPLE_RATE
+    envelope = _pulses(
+        n,
         rng,
-        breathing_rate,
-        attack=rng.uniform(0.08, 0.25),
-        release=rng.uniform(0.25, 0.65),
-        duty=rng.uniform(0.45, 0.7),
+        rng.uniform(0.13, 0.75),
+        attack=rng.uniform(0.04, 0.30),
+        release=rng.uniform(0.15, 0.75),
+        jitter=rng.uniform(0.02, 0.12),
+        duty=rng.uniform(0.30, 0.70),
     )
-    f0 = rng.uniform(45.0, 105.0)
-    formants = (
-        rng.uniform(420.0, 700.0),
-        rng.uniform(1150.0, 1800.0),
-        rng.uniform(2300.0, 3200.0),
+
+    f0 = rng.uniform(38.0, 100.0)
+    f1 = rng.uniform(250.0, 650.0)
+    f2 = rng.uniform(800.0, 1800.0)
+    tone = _harmonic_buzz(
+        n, rng, f0, (f1, f2, 2400.0), max_hz=rng.uniform(500.0, 1400.0)
     )
-    buzz = _harmonic_buzz(time.size, rng, f0, formants)
-    turbulence = _band_noise(time.size, rng, 250.0, 2600.0) * 0.35
-    body = buzz + turbulence
+
+    # Turbulence through the soft-palate and pharynx resonances.
+    turbulence = np.zeros(n)
+    for center, width, gain in (
+        (f1, rng.uniform(100.0, 220.0), 1.0),
+        (f2, rng.uniform(200.0, 500.0), 0.5),
+    ):
+        turbulence += gain * _band_noise(n, rng, max(50.0, center - width), center + width)
+    turbulence = _normalize(turbulence)
+    roughness = _band_noise(n, rng, 60.0, 900.0)
+
+    body = rng.uniform(0.35, 0.65) * tone + 0.9 * turbulence + 0.35 * roughness
+    # A snore loses roughly 1/f of amplitude per octave: this is what puts its
+    # spectral centroid in the low hundreds of Hz instead of in the mid band.
+    body = _tilt(body, rng.uniform(1.0, 1.4))
     flutter = 0.85 + 0.15 * np.sin(
-        2 * math.pi * rng.uniform(18.0, 35.0) * time + rng.uniform(0, 6)
+        2 * math.pi * rng.uniform(9.0, 38.0) * time + rng.uniform(0, 6)
     )
-    return body * envelope * flutter
+    return _lowpass(body * envelope * flutter, rng.uniform(2400.0, 6000.0))
 
 
 def _talk(duration: float, rng: np.random.Generator, whisper: bool) -> np.ndarray:
-    time = np.arange(_seconds(duration)) / SAMPLE_RATE
-    syllable_rate = rng.uniform(2.0, 6.0)
-    envelope = _envelope_pulses(
-        time.size,
+    n = _seconds(duration)
+    time = np.arange(n) / SAMPLE_RATE
+    envelope = _pulses(
+        n,
         rng,
-        syllable_rate,
+        rng.uniform(2.0, 6.0),
         attack=rng.uniform(0.01, 0.05),
         release=rng.uniform(0.04, 0.14),
         jitter=0.015,
@@ -207,12 +277,10 @@ def _talk(duration: float, rng: np.random.Generator, whisper: bool) -> np.ndarra
             rng.uniform(1000.0, 2200.0),
             rng.uniform(2300.0, 3400.0),
         )
-        output = np.zeros(time.size)
+        output = np.zeros(n)
         for formant, width in zip(formants, (180.0, 260.0, 340.0)):
-            output += _band_noise(
-                time.size, rng, formant - width, formant + width
-            ) * rng.uniform(0.5, 1.0)
-        output = output / (np.max(np.abs(output)) + 1e-9)
+            output += _band_noise(n, rng, formant - width, formant + width) * rng.uniform(0.5, 1.0)
+        output = _normalize(output)
     else:
         f0 = rng.uniform(90.0, 240.0)
         formants = (
@@ -220,12 +288,9 @@ def _talk(duration: float, rng: np.random.Generator, whisper: bool) -> np.ndarra
             rng.uniform(1000.0, 2100.0),
             rng.uniform(2300.0, 3300.0),
         )
-        output = _harmonic_buzz(time.size, rng, f0, formants)
-        # Fricatives: short broadband bursts between syllables.
-        fricative = _band_noise(time.size, rng, 2500.0, 7500.0)
-        gate = (envelope > 0.05).astype(float)
-        output = output + 0.18 * fricative * gate
-    # Slow prosodic level changes.
+        output = _harmonic_buzz(n, rng, f0, formants)
+        fricative = _band_noise(n, rng, 2500.0, 7500.0)
+        output = output + 0.18 * fricative * (envelope > 0.05)
     contour = 0.75 + 0.25 * np.sin(
         2 * math.pi * rng.uniform(0.15, 0.4) * time + rng.uniform(0, 6)
     )
@@ -233,36 +298,50 @@ def _talk(duration: float, rng: np.random.Generator, whisper: bool) -> np.ndarra
 
 
 def _movement(duration: float, rng: np.random.Generator) -> np.ndarray:
-    time = np.arange(_seconds(duration)) / SAMPLE_RATE
-    output = np.zeros(time.size)
-    bursts = int(rng.integers(1, 5))
-    for _ in range(bursts):
+    n = _seconds(duration)
+    time = np.arange(n) / SAMPLE_RATE
+    output = np.zeros(n)
+    for _ in range(int(rng.integers(1, 5))):
         length = rng.uniform(0.08, 0.9)
-        begin = rng.uniform(0.0, max(0.01, duration - length))
-        start = int(begin * SAMPLE_RATE)
-        end = min(time.size, start + int(length * SAMPLE_RATE))
-        if end <= start:
+        begin = int(rng.uniform(0.0, max(0.01, duration - length)) * SAMPLE_RATE)
+        end = min(n, begin + _seconds(length))
+        if end <= begin:
             continue
-        burst = _band_noise(end - start, rng, rng.uniform(900.0, 3500.0), 7800.0)
+        burst = _band_noise(end - begin, rng, rng.uniform(900.0, 3500.0), 7800.0)
+        width = end - begin
+        envelope = np.ones(width)
         attack = max(1, int(0.004 * SAMPLE_RATE))
         release = max(1, int(0.10 * SAMPLE_RATE))
-        width = end - start
-        envelope = np.ones(width)
         envelope[: min(attack, width)] = np.linspace(0, 1, min(attack, width))
         if width > release:
             envelope[-release:] = np.linspace(1, 0, release) ** 1.8
-        output[start:end] += burst * envelope * rng.uniform(0.4, 1.0)
-    # Occasional low thump (bed frame, phone on nightstand).
+        output[begin:end] += burst * envelope * rng.uniform(0.4, 1.0)
     if rng.random() < 0.45:
-        start = int(rng.uniform(0.0, max(0.01, duration - 0.5)) * SAMPLE_RATE)
-        n = min(time.size - start, _seconds(0.5))
-        if n > 0:
-            t = np.arange(n) / SAMPLE_RATE
+        begin = int(rng.uniform(0.0, max(0.01, duration - 0.5)) * SAMPLE_RATE)
+        n_thump = min(n - begin, _seconds(0.5))
+        if n_thump > 0:
+            t = np.arange(n_thump) / SAMPLE_RATE
             thump = np.sin(2 * math.pi * rng.uniform(55.0, 110.0) * t) * np.exp(
                 -t * rng.uniform(12.0, 25.0)
             )
-            output[start : start + n] += 0.35 * thump
+            output[begin : begin + n_thump] += 0.35 * thump
     return output
+
+
+def _breathing(duration: float, rng: np.random.Generator) -> np.ndarray:
+    """Quiet, aperiodic-ish breathing: a hard negative for the snore class."""
+    n = _seconds(duration)
+    envelope = _pulses(
+        n,
+        rng,
+        rng.uniform(0.10, 0.35),
+        attack=rng.uniform(0.20, 0.60),
+        release=rng.uniform(0.30, 1.0),
+        jitter=rng.uniform(0.02, 0.10),
+        duty=rng.uniform(0.25, 0.55),
+    )
+    hiss = _band_noise(n, rng, 200.0, 2600.0)
+    return _lowpass(hiss * envelope, rng.uniform(2600.0, 6500.0))
 
 
 def _ambient(duration: float, rng: np.random.Generator) -> np.ndarray:
@@ -270,10 +349,9 @@ def _ambient(duration: float, rng: np.random.Generator) -> np.ndarray:
     fan = _pink_noise(n, rng)
     time = np.arange(n) / SAMPLE_RATE
     hum = 0.3 * np.sin(2 * math.pi * rng.choice([50.0, 60.0]) * time)
-    # Slow, shallow level drift.
     drift = 0.9 + 0.1 * np.sin(2 * math.pi * rng.uniform(0.02, 0.1) * time)
     output = _lowpass(fan + hum, rng.uniform(1800.0, 5000.0)) * drift
-    return output / (np.max(np.abs(output)) + 1e-9)
+    return _normalize(output)
 
 
 # ---------------------------------------------------------------- assembly
@@ -290,7 +368,7 @@ class Clip:
 
 def generate_event(label: str, rng: np.random.Generator) -> tuple[np.ndarray, float]:
     if label == "snore":
-        duration = rng.uniform(4.0, 12.0)
+        duration = rng.uniform(3.0, 12.0)
         return _fit(_snore(duration, rng), duration), duration
     if label == "talk":
         duration = rng.uniform(2.0, 8.0)
@@ -306,40 +384,49 @@ def generate_event(label: str, rng: np.random.Generator) -> tuple[np.ndarray, fl
 
 
 def generate_clip(label: str, seed: int) -> Clip:
-    """Build a clip the same way the recorder does: 2 s pre-roll + event + 3 s tail."""
+    """Build a clip the way the recorder does: 2 s pre-roll + event + 3 s tail."""
     rng = _rng(seed)
-    event, event_duration = generate_event(label, rng)
+    if label == "ambient" and rng.random() < 0.5:
+        duration = rng.uniform(3.0, 10.0)
+        event = _breathing(duration, rng)
+        event_level = 10.0 ** (rng.uniform(-46.0, -32.0) / 20.0)
+        event = _normalize(event) * event_level
+    else:
+        event, duration = generate_event(label, rng)
+        event = _normalize(event) * rng.uniform(0.02, 0.30)
+
     pre_roll = 2.0 + rng.uniform(0.0, 0.8)
     tail = 3.0 + rng.uniform(0.0, 0.8)
     pad = rng.uniform(0.0, 0.6)
-    total = pre_roll + pad + event_duration + tail
-    room_level = rng.uniform(-62.0, -38.0)
+    total = pre_roll + pad + duration + tail
+    room_level = rng.uniform(-70.0, -38.0)
     room = _room_noise(total, rng, room_level)
-    event_level = rng.uniform(0.02, 0.28)
-    event = event / (np.max(np.abs(event)) + 1e-9) * event_level
-    event = _distance(event, rng.uniform(0.3, 1.5))
+
+    event = _distance(event, rng.uniform(0.4, 1.5))
     start = _seconds(pre_roll + pad)
     assembled = room.copy()
     end = min(assembled.size, start + event.size)
     assembled[start:end] += event[: end - start]
-    # A light room reverb tail (a few early reflections).
+    # A few early reflections; a bedroom is not an anechoic chamber.
     if rng.random() < 0.5:
         reflection = event * rng.uniform(0.08, 0.22)
-        delay = int(rng.uniform(0.015, 0.06) * SAMPLE_RATE)
+        delay = _seconds(rng.uniform(0.015, 0.06))
         shifted = np.zeros_like(assembled)
         if start + delay < assembled.size:
             available = min(reflection.size, assembled.size - start - delay)
             shifted[start + delay : start + delay + available] = reflection[:available]
         assembled += shifted
 
+    assembled = phone_path(assembled, rng)
+    assembled = phone_path(assembled, rng) if rng.random() < 0.3 else assembled
     peak = np.max(np.abs(assembled))
-    if peak > 0.98:
-        assembled *= 0.98 / peak
+    if peak > 0.97:
+        assembled *= 0.97 / peak
     return Clip(
         samples=assembled.astype(np.float32),
         label=label,
         event_start_s=pre_roll + pad,
-        event_end_s=pre_roll + pad + event_duration,
+        event_end_s=pre_roll + pad + duration,
         seed=seed,
     )
 

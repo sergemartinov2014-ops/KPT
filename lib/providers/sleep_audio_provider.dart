@@ -17,8 +17,11 @@ class SleepAudioProvider extends ChangeNotifier {
   double get noiseFloorDb => _service.noiseFloorDb;
   double get triggerThresholdDb => _service.triggerThresholdDb;
   String? get playingClipId => _service.playingClipId;
+  String? get startingClipId => _service.startingClipId;
   int get delayMinutes => _service.delayMinutes;
-  double get startThresholdDb => _service.startThresholdDb;
+  double get sensitivityDb => _service.sensitivityDb;
+  double get lowBandFloorDb => _service.lowBandFloorDb;
+  int get maxClipsPerSession => _service.maxClipsPerSessionLimit;
   String? get lastError => _service.lastError;
 
   SleepAudioProvider() {
@@ -59,8 +62,8 @@ class SleepAudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateSettings({int? delay, double? threshold}) async {
-    await _service.saveSettings(delay: delay, threshold: threshold);
+  Future<void> updateSettings({int? delay, double? sensitivity}) async {
+    await _service.saveSettings(delay: delay, sensitivity: sensitivity);
     notifyListeners();
   }
 

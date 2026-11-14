@@ -18,9 +18,16 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
   final DateFormat _timeFormat = DateFormat('HH:mm:ss');
   final DateFormat _dateFormat = DateFormat('d MMMM, yyyy', 'ru');
 
+  /// Фильтр списка записей; `null` — показать всё.
+  SleepSoundType? _filter;
+
   @override
   Widget build(BuildContext context) {
     final audio = context.watch<SleepAudioProvider>();
+    final clips = audio.clips;
+    final filtered = _filter == null
+        ? clips
+        : clips.where((clip) => clip.soundType == _filter).toList();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -53,20 +60,25 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Записи событий сна', style: AppTheme.sectionLabel),
-                if (audio.clips.isNotEmpty)
+                if (clips.isNotEmpty)
                   Text(
-                    '${audio.clips.length} ${audio.clips.length == 1 ? 'клип' : 'клипов'}',
+                    '${filtered.length} из ${clips.length}',
                     style: const TextStyle(
                         fontSize: 11, color: AppTheme.textMuted),
                   ),
               ],
             ),
+            if (clips.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _buildFilterRow(clips),
+            ],
             const SizedBox(height: 12),
-            if (audio.clips.isEmpty)
+            if (clips.isEmpty)
               _buildEmptyState()
+            else if (filtered.isEmpty)
+              _buildEmptyFilterState()
             else
-              ...audio.clips
-                  .map((clip) => _buildClipCard(context, audio, clip)),
+              ...filtered.map((clip) => _buildClipCard(context, audio, clip)),
           ],
         ),
       ),
@@ -171,12 +183,19 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
           if (isRunning) ...[
             const SizedBox(height: 20),
             _buildLiveSoundMeter(audio.currentDb, audio.triggerThresholdDb),
+            const SizedBox(height: 6),
+            Text(
+              'Шумовой пол: ${audio.lowBandFloorDb.toStringAsFixed(0)} дБ '
+              '(полоса храпа 60–1200 Гц)',
+              style: const TextStyle(
+                  fontSize: 10.5, color: AppTheme.textMuted),
+            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Записано за сессию: ${audio.sessionClipCount} / 50',
+                  'Записано за сессию: ${audio.sessionClipCount} / ${audio.maxClipsPerSession}',
                   style: const TextStyle(
                       fontSize: 12, color: AppTheme.textSecondary),
                 ),
@@ -329,7 +348,8 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Не записывает звуки, пока вы укладываетесь в постель',
+            'Микрофон уже слушает комнату, чтобы выучить её шумовой пол, '
+            'но события не сохраняются, пока вы укладываетесь',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -380,6 +400,72 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
     );
   }
 
+  Widget _buildEmptyFilterState() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Text(
+        'В этой категории пока нет записей.',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+      ),
+    );
+  }
+
+  Widget _buildFilterRow(List<SleepAudioClip> clips) {
+    int count(SleepSoundType? type) => type == null
+        ? clips.length
+        : clips.where((clip) => clip.soundType == type).length;
+
+    final chips = <(SleepSoundType?, String)>[
+      (null, 'Все'),
+      (SleepSoundType.snore, 'Храп'),
+      (SleepSoundType.talk, 'Разговор'),
+      (SleepSoundType.movement, 'Шорох'),
+      (SleepSoundType.ambient, 'Фон'),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (type, label) in chips)
+            if (type == null || count(type) > 0) ...[
+              _buildFilterChip(type, '$label · ${count(type)}'),
+              const SizedBox(width: 8),
+            ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(SleepSoundType? type, String label) {
+    final selected = _filter == type;
+    return InkWell(
+      onTap: () => setState(() => _filter = type),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.accent.withValues(alpha: 0.15)
+              : AppTheme.surfaceElevated,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppTheme.accent : AppTheme.surfaceBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? AppTheme.accent : AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return const LiquidGlass(
       radius: 24,
@@ -412,6 +498,7 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
   Widget _buildClipCard(
       BuildContext context, SleepAudioProvider audio, SleepAudioClip clip) {
     final isPlaying = audio.playingClipId == clip.id;
+    final isStarting = audio.startingClipId == clip.id;
 
     IconData typeIcon;
     Color typeColor;
@@ -449,34 +536,54 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            InkWell(
-              onTap: () async {
-                final error = await audio.playClip(clip);
-                if (error != null && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(error)),
-                  );
-                }
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isPlaying
-                      ? AppTheme.accent
-                      : typeColor.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                  border: Border.all(
+            Semantics(
+              button: true,
+              label: isStarting
+                  ? 'Загрузка записи'
+                  : (isPlaying
+                      ? 'Приостановить воспроизведение'
+                      : 'Воспроизвести запись'),
+              child: InkWell(
+                onTap: () async {
+                  final error = await audio.playClip(clip);
+                  if (error != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(error)),
+                    );
+                  }
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
                     color: isPlaying
                         ? AppTheme.accent
-                        : typeColor.withValues(alpha: 0.3),
+                        : typeColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isPlaying
+                          ? AppTheme.accent
+                          : typeColor.withValues(alpha: 0.3),
+                    ),
                   ),
-                ),
-                child: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: isPlaying ? const Color(0xFF06080F) : typeColor,
-                  size: 24,
+                  child: isStarting
+                      ? Padding(
+                          padding: const EdgeInsets.all(13),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: typeColor,
+                          ),
+                        )
+                      : Icon(
+                          isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          color: isPlaying
+                              ? const Color(0xFF06080F)
+                              : typeColor,
+                          size: 24,
+                        ),
                 ),
               ),
             ),
@@ -562,7 +669,7 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
   }
 
   void _showSettingsDialog(BuildContext context, SleepAudioProvider audio) {
-    double tempThreshold = audio.startThresholdDb;
+    double tempSensitivity = audio.sensitivityDb;
 
     showLiquidGlassBottomSheet(
       context: context,
@@ -577,7 +684,7 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Порог чувствительности микрофона',
+                      'Чувствительность микрофона',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -593,7 +700,10 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Чем выше значение (ближе к 0 dB), тем громче должен быть храп или шум, чтобы началась запись.',
+                  'Порог считается от шумового пола комнаты, а не от абсолютной '
+                  'громкости: приложение сначала слушает фон, затем фиксирует '
+                  'звук, который его превышает. Ниже — насколько громче фона '
+                  'должно быть событие.',
                   style: TextStyle(
                       fontSize: 12.5,
                       color: AppTheme.textSecondary,
@@ -603,11 +713,11 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Порог активации:',
+                    const Text('Порог над фоном:',
                         style: TextStyle(
                             color: AppTheme.textSecondary, fontSize: 13)),
                     Text(
-                      '${tempThreshold.toStringAsFixed(0)} dB',
+                      '+${tempSensitivity.toStringAsFixed(0)} дБ',
                       style: const TextStyle(
                         color: AppTheme.accent,
                         fontWeight: FontWeight.w700,
@@ -617,23 +727,23 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                   ],
                 ),
                 Slider(
-                  value: tempThreshold,
-                  min: -50.0,
-                  max: -15.0,
-                  divisions: 35,
+                  value: tempSensitivity,
+                  min: 3.0,
+                  max: 16.0,
+                  divisions: 13,
                   activeColor: AppTheme.accent,
                   inactiveColor: AppTheme.surfaceElevated,
                   onChanged: (val) {
-                    setModalState(() => tempThreshold = val);
+                    setModalState(() => tempSensitivity = val);
                   },
                 ),
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Очень чуткий (-50 dB)',
+                    Text('Тихий храп (+3 дБ)',
                         style:
                             TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                    Text('Только громкий (-15 dB)',
+                    Text('Только громкое (+16 дБ)',
                         style:
                             TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                   ],
@@ -652,7 +762,7 @@ class _SleepAudioScreenState extends State<SleepAudioScreen> {
                     child: const Text('Сохранить',
                         style: TextStyle(fontWeight: FontWeight.w700)),
                     onPressed: () {
-                      audio.updateSettings(threshold: tempThreshold);
+                      audio.updateSettings(sensitivity: tempSensitivity);
                       Navigator.pop(ctx);
                     },
                   ),

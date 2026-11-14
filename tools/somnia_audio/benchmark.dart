@@ -1,4 +1,4 @@
-// Benchmark the v2 classifier on 15 s and 45 s clips.
+﻿// Benchmark the shipping classifier on 15 s and 45 s clips.
 //
 //   dart run tools/somnia_audio/benchmark.dart
 //
@@ -82,7 +82,7 @@ void main() {
   }
 
   final Map<String, dynamic> report = <String, dynamic>{
-    'classifier': 'AudioEventClassifier v2',
+    'classifier': 'AudioEventClassifier v3 (DSP score fusion)',
     'fixture': _fixture,
     'fixture_source': 'synthetic (tools/somnia_audio/make_fixtures.py)',
     'runtime': 'dart JIT, development machine',
@@ -98,3 +98,4 @@ void main() {
   );
   print('wrote ${output.path}');
 }
+

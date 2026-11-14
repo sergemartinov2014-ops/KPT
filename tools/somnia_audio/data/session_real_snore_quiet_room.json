@@ -1,0 +1,143 @@
+{
+  "source": "tools/somnia_audio/data/external/snoring_apnoea/snoring_apnoea_gated_16k.wav",
+  "source_peak_db": -8.464413855937227,
+  "source_rms_db": -35.06953349175853,
+  "room_rms_db": -75.0,
+  "lead_in_s": 5.0,
+  "snore_ranges_s": [
+    [
+      0.0,
+      7.2
+    ],
+    [
+      39.8,
+      46.9
+    ]
+  ],
+  "detector": "NightSoundDetector(sensitivityDb: 7)",
+  "classifier": "DSP score fusion (lib/services/audio_event_classifier.dart)",
+  "scenarios": [
+    {
+      "target_peak_db": -22.0,
+      "source_peak_db": -8.5,
+      "source_rms_db": -35.1,
+      "clips": [
+        {
+          "start_s": 3.11,
+          "duration_s": 12.14,
+          "active_s": 7.14,
+          "type": "snore",
+          "confidence": 0.474,
+          "peak_db": -35.8
+        },
+        {
+          "start_s": 42.88,
+          "duration_s": 12.05,
+          "active_s": 7.06,
+          "type": "snore",
+          "confidence": 0.529,
+          "peak_db": -30.6
+        }
+      ],
+      "snore_time_covered": 1.0,
+      "snore_clips": 2,
+      "false_clips": 0
+    },
+    {
+      "target_peak_db": -32.0,
+      "source_peak_db": -8.5,
+      "source_rms_db": -35.1,
+      "clips": [
+        {
+          "start_s": 3.19,
+          "duration_s": 12.05,
+          "active_s": 6.64,
+          "type": "snore",
+          "confidence": 0.471,
+          "peak_db": -45.8
+        },
+        {
+          "start_s": 43.47,
+          "duration_s": 11.42,
+          "active_s": 6.26,
+          "type": "snore",
+          "confidence": 0.5,
+          "peak_db": -40.6
+        }
+      ],
+      "snore_time_covered": 1.0,
+      "snore_clips": 2,
+      "false_clips": 0
+    },
+    {
+      "target_peak_db": -42.0,
+      "source_peak_db": -8.5,
+      "source_rms_db": -35.1,
+      "clips": [
+        {
+          "start_s": 3.23,
+          "duration_s": 11.68,
+          "active_s": 4.16,
+          "type": "snore",
+          "confidence": 0.399,
+          "peak_db": -55.8
+        },
+        {
+          "start_s": 43.47,
+          "duration_s": 11.26,
+          "active_s": 5.12,
+          "type": "snore",
+          "confidence": 0.446,
+          "peak_db": -50.6
+        }
+      ],
+      "snore_time_covered": 1.0,
+      "snore_clips": 2,
+      "false_clips": 0
+    },
+    {
+      "target_peak_db": -52.0,
+      "source_peak_db": -8.5,
+      "source_rms_db": -35.1,
+      "clips": [
+        {
+          "start_s": 3.32,
+          "duration_s": 11.42,
+          "active_s": 3.07,
+          "type": "ambient",
+          "confidence": 0.519,
+          "peak_db": -65.4
+        },
+        {
+          "start_s": 43.47,
+          "duration_s": 11.05,
+          "active_s": 3.82,
+          "type": "ambient",
+          "confidence": 0.346,
+          "peak_db": -60.5
+        }
+      ],
+      "snore_time_covered": 1.0,
+      "snore_clips": 0,
+      "false_clips": 0
+    },
+    {
+      "target_peak_db": -62.0,
+      "source_peak_db": -8.5,
+      "source_rms_db": -35.1,
+      "clips": [
+        {
+          "start_s": 43.51,
+          "duration_s": 10.12,
+          "active_s": 1.76,
+          "type": "ambient",
+          "confidence": 0.678,
+          "peak_db": -69.2
+        }
+      ],
+      "snore_time_covered": 0.497,
+      "snore_clips": 0,
+      "false_clips": 0
+    }
+  ]
+}

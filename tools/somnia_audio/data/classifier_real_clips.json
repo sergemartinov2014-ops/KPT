@@ -1,0 +1,102 @@
+{
+  "classifier": "DSP score fusion (lib/services/audio_event_classifier.dart)",
+  "sample_rate": 16000,
+  "window_s": null,
+  "hop_s": null,
+  "min_active_s": 0.0,
+  "rows": 80,
+  "metrics": {
+    "rows": 40,
+    "macro_f1": 0.24358974358974358,
+    "snore_recall": 0.95,
+    "snore_precision": 1.0,
+    "mean_confidence": 0.8768376998717743,
+    "per_class": {
+      "snore": {
+        "precision": 1.0,
+        "recall": 0.95,
+        "f1": 0.9743589743589743,
+        "support": 40.0
+      },
+      "talk": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0.0
+      },
+      "movement": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0.0
+      },
+      "ambient": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0.0
+      }
+    },
+    "confusion": {
+      "labels": [
+        "snore",
+        "talk",
+        "movement",
+        "ambient",
+        "unknown"
+      ],
+      "matrix": [
+        [
+          38,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "prediction_counts": {
+    "breathing": {
+      "ambient": 8,
+      "snore": 19,
+      "talk": 4,
+      "movement": 5,
+      "unknown": 4
+    },
+    "snore": {
+      "snore": 38,
+      "talk": 1,
+      "ambient": 1
+    }
+  },
+  "warning": "External clips only. Not labelled sleep recordings and not a benchmark. Numbers do not estimate real-world accuracy."
+}

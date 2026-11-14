@@ -259,7 +259,11 @@ def _modulation(envelope: np.ndarray, frame_rate: float) -> dict[str, float]:
         return result
     signal = envelope.astype(np.float64)
     signal = signal - float(np.mean(signal))
+    span_valid = envelope.size / frame_rate >= 3.0
     if float(np.dot(signal, signal)) <= 1e-12:
+        # A perfectly steady envelope is a valid measurement with zero
+        # modulation (fan, mains hum), not a missing one.
+        result["breath_valid"] = 1.0 if span_valid else 0.0
         return result
 
     windowed = signal * _hann(signal.size)
@@ -272,9 +276,22 @@ def _modulation(envelope: np.ndarray, frame_rate: float) -> dict[str, float]:
         return result
 
     result["syllable"] = _band_energy(freqs, power, 2.0, 8.0) / total
-    if result["span_s"] >= 8.0:
+    # A band ratio is meaningless when the envelope barely varies: the step at
+    # the start and end of a steady hum is a few frames out of hundreds, yet it
+    # owns most of an almost-zero total power.  Require a real modulation
+    # depth before reporting a breathing component.
+    mean_amplitude = float(np.mean(envelope))
+    coefficient_of_variation = (
+        float(np.std(envelope)) / mean_amplitude if mean_amplitude > EPS else 0.0
+    )
+    pulsing = coefficient_of_variation >= 0.08
+    # The breathing band is only meaningful when the active span contains at
+    # least two breath cycles: below 3 s a 0.15 Hz component cannot be
+    # resolved, so the value is reported as invalid instead of noise.
+    if result["span_s"] >= 3.0:
         result["breath_valid"] = 1.0
-        result["breath"] = _band_energy(freqs, power, 0.15, 0.7) / total
+        if pulsing:
+            result["breath"] = _band_energy(freqs, power, 0.15, 0.7) / total
 
     mask = (freqs >= 0.15) & (freqs <= 8.0)
     if np.any(mask):
@@ -383,7 +400,9 @@ def extract(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> dict[str, fl
             f0[index] = f0[index - 1]
 
     # Adaptive event detection: 10th percentile floor, +10 dB start, +6 dB hold.
-    noise_floor_db = _percentile(rms_db, 0.10)
+    # 5th percentile: a long continuous snore clip may hold less than 10%
+    # quiet audio, and a contaminated floor hides its own active frames.
+    noise_floor_db = _percentile(rms_db, 0.05)
     start_threshold = noise_floor_db + 10.0
     hold_threshold = noise_floor_db + 6.0
     mask = rms_db > hold_threshold
@@ -572,3 +591,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

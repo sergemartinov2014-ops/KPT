@@ -382,7 +382,7 @@ class HomeScreen extends StatelessWidget {
                 child: Text(
                   isMonitoring
                       ? 'Фиксация храпа, разговоров и фаз ворочания в фоновом режиме'
-                      : 'Автоматическая запись необычных звуков сна с порогом ${sleepAudio.startThresholdDb.toStringAsFixed(0)} дБ',
+                      : 'Автоматическая запись звуков громче фона на ${sleepAudio.sensitivityDb.toStringAsFixed(0)} дБ',
                   style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
                 ),
               ),

@@ -1,8 +1,12 @@
 """Export the trained JSON model into Dart constants and the Flutter asset.
 
+Legacy (v2).  The runtime classifier is the DSP score fusion in
+``lib/services/audio_event_classifier.dart`` and no longer imports the
+generated constants.  This script is kept so a future labelled-night dataset
+can be exported and compared against the rules.
+
 A JSON asset alone is awkward inside ``Isolate.run`` (no rootBundle in a
 background isolate), so the same numbers are generated as Dart constants.
-``test/sleep_audio_model_test.dart`` checks that both copies agree.
 """
 
 from __future__ import annotations
